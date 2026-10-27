@@ -3,187 +3,253 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oppostest | Plataforma d'Entrenament Mossos d'Esquadra</title>
+    <title>Oppostest | Mossos d'Esquadra</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app-layout">
-        <!-- Barra Lateral (PC) / Capçalera (Mòbil) -->
-        <aside class="sidebar">
-            <div class="brand">
-                <div class="brand-badge">OT</div>
-                <div>
-                    <h1>OPPOSTEST</h1>
-                    <span class="subtitle">Cos de Mossos d'Esquadra</span>
-                </div>
+    <!-- Alerta Global del CEO -->
+    <div id="global-alert-banner" class="alert-banner hidden">
+        <span id="global-alert-text"></span>
+    </div>
+
+    <div class="duo-layout">
+        <!-- BARRA ESQUERRA (Navegació neta estil Duolingo) -->
+        <aside class="duo-sidebar">
+            <div class="duo-logo" onclick="switchTab('learn')">
+                <span class="logo-badge">OT</span>
+                <span class="logo-text">OPPOSTEST</span>
             </div>
 
-            <nav class="main-nav">
-                <button class="nav-btn active" onclick="showDashboard()">
-                    <span>📊</span> Tauler Principal
+            <nav class="duo-nav">
+                <button id="tab-learn" class="duo-nav-item active" onclick="switchTab('learn')">
+                    <span class="nav-icon">🎯</span>
+                    <span class="nav-label">ENTRENAR</span>
                 </button>
-                <button class="nav-btn" onclick="startErrorsMode()">
-                    <span>⚠️</span> Repàs d'Errors <span id="nav-error-badge" class="badge">0</span>
+                <button id="tab-simulacre" class="duo-nav-item" onclick="startSimulacre()">
+                    <span class="nav-icon">⏱️</span>
+                    <span class="nav-label">SIMULACRE</span>
+                </button>
+                <button id="tab-Survival" class="duo-nav-item" onclick="startSurvival()">
+                    <span class="nav-icon">🔥</span>
+                    <span class="nav-label">SUPERVIVÈNCIA</span>
+                </button>
+                <button id="tab-errors" class="duo-nav-item" onclick="startErrorsMode()">
+                    <span class="nav-icon">🧠</span>
+                    <span class="nav-label">ERRORS</span>
+                    <span id="sidebar-error-count" class="pill-count">0</span>
+                </button>
+                <button id="tab-ranking" class="duo-nav-item" onclick="switchTab('ranking')">
+                    <span class="nav-icon">🏆</span>
+                    <span class="nav-label">RÀNQUING</span>
+                </button>
+
+                <!-- BOTÓ OCULT CEO (Només visible per gerardlopezgarcia1@gmail.com) -->
+                <button id="tab-ceo" class="duo-nav-item ceo-btn hidden" onclick="switchTab('ceo')">
+                    <span class="nav-icon">👑</span>
+                    <span class="nav-label">PANEL CEO</span>
                 </button>
             </nav>
 
-            <div class="user-box">
-                <div class="user-info">
-                    <span class="user-status" id="user-display">Mode Local (Sense sessió)</span>
-                    <button id="auth-btn" class="btn-outline-light">Iniciar Sessió</button>
-                </div>
+            <div class="sidebar-footer">
+                <button id="btn-auth-trigger" class="btn-3d btn-navy w-full" onclick="handleAuthClick()">
+                    👤 ENTRAR
+                </button>
             </div>
         </aside>
 
-        <!-- Contingut Principal -->
-        <main class="main-workspace">
-            <!-- Barra superior d'estadístiques ràpides -->
-            <header class="topbar">
-                <div class="stat-pill">
-                    <span class="stat-label">🔥 Millor Ratxa Supervivència:</span>
-                    <strong id="stat-streak">0</strong>
+        <!-- ZONA CENTRAL -->
+        <main class="duo-main">
+            <!-- Barra superior d'estat -->
+            <header class="duo-topbar">
+                <div class="top-stat" title="Ratxa màxima">
+                    <span>🔥</span> <strong id="ui-streak">0</strong>
                 </div>
-                <div class="stat-pill">
-                    <span class="stat-label">✅ Preguntes superades:</span>
-                    <strong id="stat-answered">0</strong>
+                <div class="top-stat" title="Punts d'experiència (XP)">
+                    <span>⚡</span> <strong id="ui-xp">0</strong> <small>XP</small>
                 </div>
-                <div class="stat-pill error-pill">
-                    <span class="stat-label">❌ Errors pendents:</span>
-                    <strong id="stat-errors">0</strong>
+                <div class="top-stat" title="Errors pendents">
+                    <span>❤️</span> <strong id="ui-errors">0</strong> <small>pendents</small>
                 </div>
+                <div class="top-user" id="ui-user-tag">Convidat</div>
             </header>
 
-            <!-- VISTA 1: TAULER PRINCIPAL (Directe al gra) -->
-            <section id="view-dashboard" class="view-section">
-                <div class="section-header">
-                    <h2>Selecciona el mode d'entrenament</h2>
-                    <p>Tria un mode ràpid o selecciona un tema específic de la guia oficial.</p>
-                </div>
-
-                <!-- Targetes de Modes Principals -->
-                <div class="modes-grid">
-                    <div class="mode-card highlight-card" onclick="startSimulacre()">
-                        <div class="card-tag">MODE EXAMEN</div>
-                        <h3>⏱️ Simulacre Oficial</h3>
-                        <p>35 preguntes aleatòries dels 3 àmbits. 35 minuts. Sense correcció immediata i penalització d'1/3 per errada.</p>
-                        <span class="card-action">Començar Simulacre →</span>
-                    </div>
-
-                    <div class="mode-card" onclick="startSurvival()">
-                        <div class="card-tag">GAMIFICAT</div>
-                        <h3>🔥 Mode Supervivència</h3>
-                        <p>Preguntes infinites de tot el temari. Suma punts a la teva ratxa fins que fallis una sola pregunta.</p>
-                        <span class="card-action">Jugar ara →</span>
-                    </div>
-
-                    <div class="mode-card" onclick="startErrorsMode()">
-                        <div class="card-tag"> PERSONALITZAT</div>
-                        <h3>🧠 Repàs de Fallades</h3>
-                        <p>Entrena exclusivament les preguntes que has fallat anteriorment. Quan les encertis, s'esborraran de la llista.</p>
-                        <span class="card-action">Repassar errors →</span>
-                    </div>
-                </div>
-
-                <!-- Entrenament per Àmbits -->
-                <div class="section-header mt-4">
-                    <h2>Entrenament per Àmbits (Mode Estudi)</h2>
-                    <p>Barreja de preguntes de cada bloc amb correcció i explicació immediata.</p>
-                </div>
-                <div class="ambits-grid">
-                    <button class="ambit-btn" onclick="startAmbit('A')">
-                        <strong>Àmbit A</strong>
-                        <span>Coneixements de l'entorn (A1 - A7)</span>
+            <!-- VISTA 1: MAPA D'ENTRENAMENT -->
+            <section id="view-learn" class="content-view">
+                <!-- Modes ràpids -->
+                <div class="quick-modes">
+                    <button class="btn-3d btn-red mode-big" onclick="startSimulacre()">
+                        <span class="big-icon">⏱️</span>
+                        <div>
+                            <strong>SIMULACRE OFICIAL</strong>
+                            <small>35 preg · 35 min · -1/3</small>
+                        </div>
                     </button>
-                    <button class="ambit-btn" onclick="startAmbit('B')">
-                        <strong>Àmbit B</strong>
-                        <span>Àmbit Institucional (B1 - B8)</span>
+                    <button class="btn-3d btn-gold mode-big" onclick="startSurvival()">
+                        <span class="big-icon">🔥</span>
+                        <div>
+                            <strong>SUPERVIVÈNCIA</strong>
+                            <small>Fins que fallis una</small>
+                        </div>
                     </button>
-                    <button class="ambit-btn" onclick="startAmbit('C')">
-                        <strong>Àmbit C</strong>
-                        <span>Seguretat i Policia (C1 - C5)</span>
+                    <button class="btn-3d btn-blue mode-big" onclick="startErrorsMode()">
+                        <span class="big-icon">🧠</span>
+                        <div>
+                            <strong>REPASSAR ERRORS</strong>
+                            <small>Neteja les fallades</small>
+                        </div>
                     </button>
                 </div>
 
-                <!-- Entrenament per Temes (A1 - C5) -->
-                <div class="section-header mt-4">
-                    <h2>Entrenament per Temes Específics</h2>
-                    <p>Selecciona un tema concret (20 preguntes aleatòries amb explicació al moment).</p>
+                <!-- Blocs per Àmbits + Nodos de Temes -->
+                <div class="unit-banner unit-a">
+                    <div>
+                        <span class="unit-tag">BLOC 1</span>
+                        <h2>Àmbit A · Coneixements de l'entorn</h2>
+                    </div>
+                    <button class="btn-3d btn-white" onclick="startAmbit('A')">Barrejar Àmbit A</button>
                 </div>
-                <div id="topics-container" class="topics-grid">
-                    <!-- Es genera automàticament des de JS -->
+                <div id="nodes-A" class="nodes-grid"></div>
+
+                <div class="unit-banner unit-b">
+                    <div>
+                        <span class="unit-tag">BLOC 2</span>
+                        <h2>Àmbit B · Institucional</h2>
+                    </div>
+                    <button class="btn-3d btn-white" onclick="startAmbit('B')">Barrejar Àmbit B</button>
                 </div>
+                <div id="nodes-B" class="nodes-grid"></div>
+
+                <div class="unit-banner unit-c">
+                    <div>
+                        <span class="unit-tag">BLOC 3</span>
+                        <h2>Àmbit C · Seguretat i Policia</h2>
+                    </div>
+                    <button class="btn-3d btn-white" onclick="startAmbit('C')">Barrejar Àmbit C</button>
+                </div>
+                <div id="nodes-C" class="nodes-grid"></div>
             </section>
 
-            <!-- VISTA 2: PANTALLA DE TEST -->
-            <section id="view-quiz" class="view-section hidden">
-                <div class="quiz-topbar">
-                    <button class="btn-back" onclick="confirmExitQuiz()">✕ Sortir del test</button>
-                    <div class="quiz-meta">
-                        <span id="quiz-mode-title" class="mode-badge">Mode Estudi</span>
-                        <span id="quiz-timer" class="timer-badge hidden">35:00</span>
+            <!-- VISTA 2: RÀNQUING (Connectat a /users) -->
+            <section id="view-ranking" class="content-view hidden">
+                <div class="card-clean">
+                    <div class="card-head">
+                        <h2>🏆 Lliga d'Opositors (Top XP)</h2>
+                        <button class="btn-3d btn-white btn-sm" onclick="loadRanking()">🔄</button>
                     </div>
-                    <div class="quiz-progress-text">
-                        Pregunta <strong id="current-q-num">1</strong> de <strong id="total-q-num">20</strong>
-                    </div>
-                </div>
-
-                <div class="progress-bar-track">
-                    <div id="progress-bar-fill" class="progress-bar-fill"></div>
-                </div>
-
-                <div class="question-card">
-                    <h3 id="question-text" class="question-title">Carregant pregunta...</h3>
-                    <div id="options-container" class="options-list"></div>
-
-                    <!-- Quadre d'explicació (Mode Estudi / Supervivència) -->
-                    <div id="explanation-box" class="explanation-box hidden">
-                        <strong id="feedback-status">Resposta Correcta!</strong>
-                        <p id="explanation-text"></p>
-                    </div>
-
-                    <div class="quiz-footer">
-                        <button id="btn-skip" class="btn-secondary hidden" onclick="skipQuestion()">Deixar en blanc</button>
-                        <button id="btn-next" class="btn-primary hidden" onclick="nextQuestion()">Següent pregunta →</button>
+                    <div id="ranking-list" class="ranking-list">
+                        <p class="muted">Carregant classificació...</p>
                     </div>
                 </div>
             </section>
 
-            <!-- VISTA 3: RESULTATS DEL TEST -->
-            <section id="view-results" class="view-section hidden">
-                <div class="results-card">
-                    <h2 id="results-title">Test Finalitzat</h2>
-                    <div class="score-circle">
-                        <span id="final-score">0.00</span>
-                        <small>Nota sobre 10</small>
-                    </div>
+            <!-- VISTA 3: PANEL CEO OCULT (Només gerardlopezgarcia1@gmail.com) -->
+            <section id="view-ceo" class="content-view hidden">
+                <div class="ceo-header">
+                    <h2>👑 Panel de Control CEO</h2>
+                    <span class="ceo-badge">gerardlopezgarcia1@gmail.com</span>
+                </div>
 
-                    <div class="results-stats-grid">
-                        <div class="res-box correct">
-                            <strong>Encerts</strong>
-                            <span id="res-correct">0</span>
-                        </div>
-                        <div class="res-box wrong">
-                            <strong>Errades</strong>
-                            <span id="res-wrong">0</span>
-                        </div>
-                        <div class="res-box blank">
-                            <strong>En blanc</strong>
-                            <span id="res-blank">0</span>
+                <div class="ceo-grid">
+                    <!-- 1. Alerta Global (/admin/global) -->
+                    <div class="card-clean">
+                        <h3>📢 Alerta Global Web</h3>
+                        <input type="text" id="ceo-alert-input" class="duo-input" placeholder="Ex: Nou Simulacre Oficial disponible!">
+                        <div class="row-btns">
+                            <button class="btn-3d btn-green" onclick="ceoSaveAlert()">Publicar</button>
+                            <button class="btn-3d btn-gray" onclick="ceoClearAlert()">Amagar</button>
                         </div>
                     </div>
 
-                    <div class="results-actions">
-                        <button class="btn-primary" onclick="showDashboard()">Tornar al Tauler Principal</button>
+                    <!-- 2. Crear Pregunta (/mossos_custom_questions) -->
+                    <div class="card-clean">
+                        <h3>➕ Afegir Pregunta en Viu</h3>
+                        <input type="text" id="ceo-q-text" class="duo-input" placeholder="Enunciat de la pregunta">
+                        <input type="text" id="ceo-q-opt1" class="duo-input" placeholder="Opció A (Correcta)">
+                        <input type="text" id="ceo-q-opt2" class="duo-input" placeholder="Opció B">
+                        <input type="text" id="ceo-q-opt3" class="duo-input" placeholder="Opció C">
+                        <input type="text" id="ceo-q-opt4" class="duo-input" placeholder="Opció D">
+                        <input type="text" id="ceo-q-exp" class="duo-input" placeholder="Explicació breu">
+                        <button class="btn-3d btn-blue w-full" onclick="ceoCreateQuestion()">Guardar a Firestore</button>
+                    </div>
+                </div>
+
+                <!-- 3. Reportes d'errors (/reports) -->
+                <div class="card-clean mt-3">
+                    <div class="card-head">
+                        <h3>🚩 Preguntes Reportades pels Usuaris</h3>
+                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadReports()">Actualitzar</button>
+                    </div>
+                    <div id="ceo-reports-list" class="admin-list"></div>
+                </div>
+
+                <!-- 4. Gestió d'Usuaris (/users) -->
+                <div class="card-clean mt-3">
+                    <div class="card-head">
+                        <h3>👥 Usuaris Registrats</h3>
+                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadUsers()">Actualitzar</button>
+                    </div>
+                    <div id="ceo-users-list" class="admin-list"></div>
+                </div>
+            </section>
+
+            <!-- VISTA 4: PANTALLA DE TEST (Estil Duolingo) -->
+            <section id="view-quiz" class="content-view hidden">
+                <div class="quiz-header">
+                    <button class="btn-icon" onclick="confirmExitQuiz()">✕</button>
+                    <div class="duo-progress-track">
+                        <div id="quiz-progress-bar" class="duo-progress-fill"></div>
+                    </div>
+                    <span id="quiz-timer" class="timer-pill hidden">35:00</span>
+                    <span id="quiz-counter" class="counter-pill">1/20</span>
+                </div>
+
+                <div class="quiz-body">
+                    <div class="q-top-row">
+                        <span id="quiz-badge" class="tag-pill">TEMA A1</span>
+                        <button class="btn-report" onclick="reportCurrentQuestion()" title="Reportar error a l'administrador">🚩 Reportar</button>
                     </div>
 
-                    <!-- Revisió de preguntes (Especial per a Simulacre) -->
+                    <h2 id="question-text" class="duo-question">Carregant...</h2>
+
+                    <div id="options-container" class="duo-options"></div>
+                </div>
+
+                <!-- Barra inferior de resposta estil Duolingo -->
+                <div id="quiz-bottom-bar" class="quiz-bottom-bar">
+                    <div id="feedback-content" class="feedback-info hidden">
+                        <strong id="feedback-title">✅ Correcte!</strong>
+                        <p id="feedback-explanation"></p>
+                    </div>
+                    <div class="quiz-actions">
+                        <button id="btn-skip" class="btn-3d btn-gray hidden" onclick="skipQuestion()">SALTAR</button>
+                        <button id="btn-next" class="btn-3d btn-green hidden" onclick="nextQuestion()">CONTINUAR</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA 5: RESULTATS -->
+            <section id="view-results" class="content-view hidden">
+                <div class="results-box">
+                    <div class="score-badge">
+                        <span id="res-score">0.00</span>
+                        <small id="res-label">NOTA</small>
+                    </div>
+
+                    <div class="res-pills">
+                        <div class="r-pill green"><strong id="res-ok">0</strong><span>Encerts</span></div>
+                        <div class="r-pill red"><strong id="res-ko">0</strong><span>Errades</span></div>
+                        <div class="r-pill gray"><strong id="res-blank">0</strong><span>En blanc</span></div>
+                    </div>
+
+                    <button class="btn-3d btn-navy w-full" onclick="switchTab('learn')">CONTINUAR ENTRENANT</button>
+
                     <div id="review-container" class="review-list"></div>
                 </div>
             </section>
         </main>
     </div>
 
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>
