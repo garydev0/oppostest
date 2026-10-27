@@ -4,20 +4,21 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, ad
 
 const CEO_EMAIL = "gerardlopezgarcia1@gmail.com";
 
-// 1. ENGANXA AQUÍ EL TEU FIREBASE CONFIG DEL TEU PROJECTE
+// Tu configuració real de Firebase
 const firebaseConfig = {
-    apiKey: "PEGA_AQUI_TU_API_KEY",
-    authDomain: "TU_PROYECTO.firebaseapp.com",
-    projectId: "TU_PROYECTO",
-    storageBucket: "TU_PROYECTO.appspot.com",
-    messagingSenderId: "00000000000",
-    appId: "1:00000000:web:00000000"
+    apiKey: "AIzaSyAK8r_-CMw1626LIFnrn9NcVkIcvYv2Elo",
+    authDomain: "oppostest.firebaseapp.com",
+    projectId: "oppostest",
+    storageBucket: "oppostest.firebasestorage.app",
+    messagingSenderId: "738546966243",
+    appId: "1:738546966243:web:58b4277287a97d6e036fd6",
+    measurementId: "G-XT9FSLFHSB"
 };
 
 let auth = null;
 let db = null;
 let currentUser = null;
-const firebaseReady = !firebaseConfig.apiKey.includes("PEGA_AQUI");
+const firebaseReady = true;
 
 if (firebaseReady) {
     const app = initializeApp(firebaseConfig);
