@@ -33,7 +33,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- PANTALLA DE CÀRREGA INICIAL (SPLASH SCREEN) -->
+    <!-- PANTALLA DE CÀRREGA INICIAL -->
     <div id="splash-screen" class="splash-overlay">
         <div class="splash-box">
             <img src="logo.png" alt="Oppostest Logo" class="splash-logo" onerror="this.style.display='none'">
@@ -45,7 +45,7 @@
         </div>
     </div>
 
-    <!-- Pantalla de bloqueig si l'usuari està BANEJAT pel CEO -->
+    <!-- Pantalla de bloqueig si l'usuari està BANEJAT -->
     <div id="ban-screen" class="ban-overlay hidden">
         <div class="modal-card">
             <div class="modal-icon">🚫</div>
@@ -96,7 +96,7 @@
     </div>
 
     <div class="duo-layout">
-        <!-- BARRA LATERAL -->
+        <!-- BARRA LATERAL (PC) / BARRA INFERIOR ADAPTADA (MÒBIL) -->
         <aside class="duo-sidebar">
             <div class="duo-logo" onclick="switchTab('learn')">
                 <img src="logo.png" alt="OT" class="sidebar-logo-img" onerror="this.outerHTML='<span class=\'logo-badge\'>OT</span>'">
@@ -111,18 +111,18 @@
                     <span class="nav-icon">🎯</span>
                     <span class="nav-label">ENTRENAR</span>
                 </button>
-                <button id="tab-simulacre" class="duo-nav-item" onclick="openSimulacreSection()">
+                <button id="tab-simulacre" class="duo-nav-item" onclick="switchTab('simulacre')">
                     <span class="nav-icon">⏱️</span>
                     <span class="nav-label">SIMULACRE</span>
                 </button>
-                <button id="tab-errors" class="duo-nav-item" onclick="openErrorsSection()">
+                <button id="tab-errors" class="duo-nav-item" onclick="switchTab('errors')">
                     <span class="nav-icon">🧠</span>
-                    <span class="nav-label">ERRORS</span>
+                    <span class="nav-label">REPÀS</span>
                     <span id="sidebar-error-count" class="pill-count">0</span>
                 </button>
                 <button id="tab-ranking" class="duo-nav-item" onclick="switchTab('ranking')">
                     <span class="nav-icon">🏆</span>
-                    <span class="nav-label">LLIGA i PRO</span>
+                    <span class="nav-label">LLIGA</span>
                 </button>
                 <button id="tab-profile" class="duo-nav-item" onclick="switchTab('profile')">
                     <span class="nav-icon">👤</span>
@@ -130,7 +130,7 @@
                 </button>
                 <button id="tab-ceo" class="duo-nav-item ceo-btn hidden" onclick="switchTab('ceo')">
                     <span class="nav-icon">👑</span>
-                    <span class="nav-label">PANEL CEO</span>
+                    <span class="nav-label">CEO</span>
                 </button>
             </nav>
 
@@ -146,7 +146,7 @@
 
         <!-- ZONA PRINCIPAL -->
         <main class="duo-main">
-            <!-- Barra superior integrada en Blau Nit -->
+            <!-- Barra superior -->
             <header class="duo-topbar">
                 <div class="top-stat" title="Ratxa de dies seguits entrenant">
                     <span>🔥</span> <strong id="ui-daily-streak">0</strong> <small class="hide-sm">dies</small>
@@ -154,12 +154,17 @@
                 <div class="top-stat" title="Punts d'experiència">
                     <span>⚡</span> <strong id="ui-xp">0</strong> <small class="hide-sm">XP</small>
                 </div>
-                <div class="top-stat" title="Preguntes fallades pendents">
+                <div class="top-stat" onclick="switchTab('errors')" style="cursor:pointer;" title="Preguntes fallades pendents">
                     <span>❤️</span> <strong id="ui-errors">0</strong>
                 </div>
+                <div class="top-stat" onclick="switchTab('errors')" style="cursor:pointer;" title="Preguntes guardades amb estrella">
+                    <span>⭐</span> <strong id="ui-saved">0</strong>
+                </div>
                 <button id="ui-pro-badge" class="pro-pill" onclick="openProModal()">GRATIS</button>
+                <!-- Botó ràpid CEO per a Mòbil i PC -->
+                <button id="ui-ceo-top-btn" class="ceo-top-pill hidden" onclick="switchTab('ceo')">👑 CEO</button>
                 <div class="top-user" id="ui-user-tag" onclick="switchTab('profile')" title="Anar al meu perfil">
-                    <span id="ui-user-avatar">👮‍♂️</span> <span id="ui-user-name">Convidat</span>
+                    <span id="ui-user-avatar">👮‍♂️</span> <span id="ui-user-name" class="hide-xs">Convidat</span>
                 </div>
             </header>
 
@@ -175,13 +180,13 @@
                     <button class="btn-3d btn-white" onclick="startLiveEvent()">PARTICIPAR ARA →</button>
                 </div>
 
-                <!-- 4 Modes Especials -->
+                <!-- 4 Modes Ràpids -->
                 <div class="quick-modes">
-                    <button class="btn-3d btn-red mode-big" onclick="openSimulacreSection()">
+                    <button class="btn-3d btn-red mode-big" onclick="switchTab('simulacre')">
                         <span class="big-icon">⏱️</span>
                         <div>
-                            <strong>SIMULACRE OFICIAL <span class="pro-mini">PRO</span></strong>
-                            <small>30 preg · 35 min · -1/3</small>
+                            <strong>SALA DE SIMULACRES <span class="pro-mini">PRO</span></strong>
+                            <small>30 preg · 35 min · Historial</small>
                         </div>
                     </button>
                     <button class="btn-3d btn-gold mode-big" onclick="startSurvival()">
@@ -191,11 +196,11 @@
                             <small>Rècord: <span id="ui-best-survival">0</span> seguides</small>
                         </div>
                     </button>
-                    <button class="btn-3d btn-blue mode-big" onclick="openErrorsSection()">
-                        <span class="big-icon">🧠</span>
+                    <button class="btn-3d btn-blue mode-big" onclick="openCustomTestModal()">
+                        <span class="big-icon">⚙️</span>
                         <div>
-                            <strong>REPASSAR ERRORS</strong>
-                            <small>Neteja les teves fallades</small>
+                            <strong>TEST A MIDA</strong>
+                            <small>Tria àmbits, nº preguntes i mode</small>
                         </div>
                     </button>
                     <button class="btn-3d btn-purple mode-big" onclick="startCommunityFailures()">
@@ -223,7 +228,7 @@
                         <span class="unit-tag">BLOC 1 · TEMES A1 - A7</span>
                         <h2>Àmbit A · Coneixements de l'entorn</h2>
                     </div>
-                    <button class="btn-3d btn-white btn-sm" onclick="startAmbit('A')">🔀 Barrejar Bloc A</button>
+                    <button class="btn-3d btn-white btn-sm" onclick="startAmbit('A')">🔀 Test Bloc A</button>
                 </div>
                 <div id="nodes-A" class="nodes-grid"></div>
 
@@ -233,7 +238,7 @@
                         <span class="unit-tag">BLOC 2 · TEMES B1 - B8</span>
                         <h2>Àmbit B · Institucional</h2>
                     </div>
-                    <button class="btn-3d btn-white btn-sm" onclick="startAmbit('B')">🔀 Barrejar Bloc B</button>
+                    <button class="btn-3d btn-white btn-sm" onclick="startAmbit('B')">🔀 Test Bloc B</button>
                 </div>
                 <div id="nodes-B" class="nodes-grid"></div>
 
@@ -243,24 +248,63 @@
                         <span class="unit-tag">BLOC 3 · TEMES C1 - C5</span>
                         <h2>Àmbit C · Seguretat i Policia</h2>
                     </div>
-                    <button class="btn-3d btn-white btn-sm" onclick="startAmbit('C')">🔀 Barrejar Bloc C</button>
+                    <button class="btn-3d btn-white btn-sm" onclick="startAmbit('C')">🔀 Test Bloc C</button>
                 </div>
                 <div id="nodes-C" class="nodes-grid"></div>
             </section>
 
-            <!-- VISTA ESPECIAL: HUB D'ERRORS -->
-            <section id="view-errors-hub" class="content-view hidden">
-                <div class="results-box">
-                    <div class="modal-icon">🧠</div>
-                    <h2 id="errors-hub-title">Centre de Repàs d'Errors</h2>
-                    <p id="errors-hub-desc" class="modal-text mt-2">Aquí s'acumulen totes les preguntes que falles als tests i simulacres.</p>
-                    <div class="mt-3">
-                        <button id="btn-start-errors-now" class="btn-3d btn-blue w-full" onclick="launchErrorsQuiz()">COMENÇAR REPÀS D'ERRORS</button>
+            <!-- VISTA 2: SALA DE SIMULACRES OFICIALS (Pestanya pròpia) -->
+            <section id="view-simulacre-hub" class="content-view hidden">
+                <div class="profile-grid">
+                    <div class="card-clean">
+                        <span class="tag-pill">CONVOCATÒRIA MOSSOS D'ESQUADRA</span>
+                        <h2 class="mt-2">⏱️ Simulacre d'Examen Oficial</h2>
+                        <p class="muted-sm mt-2">Entrena amb les condicions exactes de la prova oficial de coneixements de l'ISPC:</p>
+                        <div class="user-detail-grid mt-3">
+                            <div class="u-stat-box"><small>Preguntes</small><strong>30 preguntes (A, B i C)</strong></div>
+                            <div class="u-stat-box"><small>Temps Màxim</small><strong>35 minuts</strong></div>
+                            <div class="u-stat-box"><small>Penalització</small><strong>-1/3 per errada</strong></div>
+                            <div class="u-stat-box"><small>Navegació</small><strong>Lliure (1 a 30) i Dubtes</strong></div>
+                        </div>
+                        <button class="btn-3d btn-red w-full mt-3" onclick="launchOfficialSimulacre()">🚀 COMENÇAR SIMULACRE OFICIAL ARA</button>
+                    </div>
+
+                    <div class="card-clean">
+                        <div class="card-head">
+                            <h3>📈 El teu Historial de Simulacres</h3>
+                            <span id="sim-avg-badge" class="tag-pill">Mitjana: 0.00</span>
+                        </div>
+                        <div id="simulacre-history-list" class="ranking-list"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- VISTA 2: LLIGA I SISTEMA DE REFERITS PRO -->
+            <!-- VISTA 3: CENTRE DE REPÀS (ERRORS I GUARDADES AMB ESTRELLA) -->
+            <section id="view-errors-hub" class="content-view hidden">
+                <div class="profile-grid">
+                    <!-- Targeta Errors -->
+                    <div class="card-clean">
+                        <div class="modal-icon">🧠</div>
+                        <h2 id="errors-hub-title">Preguntes Fallades</h2>
+                        <p id="errors-hub-desc" class="muted-sm mt-2">Aquí s'acumulen automàticament les preguntes que falles. Quan les encertis en aquest mode, quedaran netejades de la llista.</p>
+                        <div class="mt-3">
+                            <button id="btn-start-errors-now" class="btn-3d btn-blue w-full" onclick="launchErrorsQuiz()">REPASSAR ERRORS</button>
+                        </div>
+                    </div>
+
+                    <!-- Targeta Guardades ⭐ -->
+                    <div class="card-clean">
+                        <div class="modal-icon">⭐</div>
+                        <h2 id="saved-hub-title">Preguntes Guardades</h2>
+                        <p id="saved-hub-desc" class="muted-sm mt-2">Repassa les preguntes clau o dates que has marcat amb l'estrella ⭐ durant els tests per estudiar-les abans de l'examen.</p>
+                        <div class="mt-3">
+                            <button id="btn-start-saved-now" class="btn-3d btn-gold w-full" onclick="launchSavedQuiz()">REPASSAR GUARDADES ⭐</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA 4: LLIGA I SISTEMA DE REFERITS PRO -->
             <section id="view-ranking" class="content-view hidden">
                 <div class="referral-card">
                     <div>
@@ -288,7 +332,7 @@
                 </div>
             </section>
 
-            <!-- VISTA: PANTALLA DE PERFIL D'USUARI -->
+            <!-- VISTA 5: PANTALLA DE PERFIL D'USUARI I DOMINI PER ÀMBITS -->
             <section id="view-profile" class="content-view hidden">
                 <div class="profile-grid">
                     <div class="card-clean">
@@ -322,7 +366,7 @@
                     </div>
 
                     <div class="card-clean">
-                        <h3>📊 El teu Expedient d'Opositor</h3>
+                        <h3>📊 Expedient i Domini per Àmbits</h3>
                         <div class="user-detail-grid mt-2">
                             <div class="u-stat-box">
                                 <small>Estat de Subscripció</small>
@@ -340,13 +384,21 @@
                                 <small>Temes Aprovats (≥5)</small>
                                 <strong id="prof-stat-passed">0 / 20</strong>
                             </div>
-                            <div class="u-stat-box">
-                                <small>Punts d'Experiència</small>
-                                <strong id="prof-stat-xp">0 XP</strong>
+                        </div>
+
+                        <!-- Desglossament per Àmbits estil mossosquiz -->
+                        <div class="ambit-bars-box mt-2">
+                            <div class="ambit-bar-row">
+                                <span>Àmbit A (Entorn)</span>
+                                <strong id="prof-avg-a">0.0 / 10</strong>
                             </div>
-                            <div class="u-stat-box">
-                                <small>Ratxa Diària Actual</small>
-                                <strong id="prof-stat-streak">0 dies 🔥</strong>
+                            <div class="ambit-bar-row">
+                                <span>Àmbit B (Institucional)</span>
+                                <strong id="prof-avg-b">0.0 / 10</strong>
+                            </div>
+                            <div class="ambit-bar-row">
+                                <span>Àmbit C (Seguretat i Policia)</span>
+                                <strong id="prof-avg-c">0.0 / 10</strong>
                             </div>
                         </div>
 
@@ -358,7 +410,7 @@
                 </div>
             </section>
 
-            <!-- VISTA 3: PANEL CEO -->
+            <!-- VISTA 6: PANEL CEO -->
             <section id="view-ceo" class="content-view hidden">
                 <div class="ceo-header">
                     <div>
@@ -373,7 +425,7 @@
                     <div class="card-head">
                         <div>
                             <h3>📁 Gestor d'Arxius i Bancs de Preguntes a Firestore</h3>
-                            <p class="muted-sm">Pots substituir qualsevol tema pujant un <code>.json</code> des del teu PC, editar preguntes soltes o descarregar còpia.</p>
+                            <p class="muted-sm">Substitueix qualsevol tema pujant un <code>.json</code> des del teu PC o mòbil, edita preguntes soltes o descarrega còpia.</p>
                         </div>
                         <div class="row-btns">
                             <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadBanksStatus()">🔄 Actualitzar Estat</button>
@@ -425,7 +477,7 @@
                 </div>
             </section>
 
-            <!-- VISTA 4: PANTALLA DE TEST I NAVEGADOR D'EXAMEN -->
+            <!-- VISTA 7: PANTALLA DE TEST I NAVEGADOR D'EXAMEN -->
             <section id="view-quiz" class="content-view hidden">
                 <div class="quiz-header">
                     <button class="btn-icon" onclick="confirmExitQuiz()">✕</button>
@@ -436,7 +488,7 @@
                     <span id="quiz-counter" class="counter-pill">1/30</span>
                 </div>
 
-                <!-- NAVEGADOR DE PREGUNTES 1-30 (Exclusiu per a Simulacres) -->
+                <!-- NAVEGADOR DE PREGUNTES 1-30 (Per a Simulacres / Mode Examen) -->
                 <div id="simulacre-nav-panel" class="simulacre-nav-panel hidden">
                     <div class="sim-nav-header">
                         <span><strong>Full de Respostes (Clica per saltar de pregunta):</strong></span>
@@ -452,14 +504,17 @@
                 <div class="quiz-body">
                     <div class="q-top-row">
                         <span id="quiz-badge" class="tag-pill">TEMA A1</span>
-                        <button class="btn-report" onclick="reportCurrentQuestion()">🚩 Reportar pregunta</button>
+                        <div class="q-top-actions">
+                            <button id="btn-save-star" class="btn-star" onclick="toggleSaveCurrentQuestion()">☆ Guardar</button>
+                            <button class="btn-report" onclick="reportCurrentQuestion()">🚩 Reportar</button>
+                        </div>
                     </div>
 
                     <h2 id="question-text" class="duo-question">Carregant...</h2>
                     <div id="options-container" class="duo-options"></div>
                 </div>
 
-                <!-- Barra inferior: Mode Estudi vs Mode Simulacre Navegable -->
+                <!-- Barra inferior -->
                 <div id="quiz-bottom-bar" class="quiz-bottom-bar">
                     <div id="feedback-content" class="feedback-info hidden">
                         <strong id="feedback-title">✅ Correcte!</strong>
@@ -482,7 +537,7 @@
                 </div>
             </section>
 
-            <!-- VISTA 5: RESULTATS -->
+            <!-- VISTA 8: RESULTATS -->
             <section id="view-results" class="content-view hidden">
                 <div class="results-box">
                     <h2 id="res-mode-title" class="mb-2">Resultat de l'Entrenament</h2>
