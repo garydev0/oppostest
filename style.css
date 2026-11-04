@@ -68,7 +68,7 @@ code {
     transition: opacity 0.35s ease;
 }
 
-.splash-box { max-width: 380px; width: 100%; text-align: center; color: #fff; }
+.splash-box { max-width: 360px; width: 100%; text-align: center; color: #fff; }
 .splash-logo { width: 96px; height: 96px; object-fit: contain; border-radius: 22px; margin-bottom: 14px; animation: pulseLogo 1.6s infinite ease-in-out; }
 
 @keyframes pulseLogo {
@@ -266,7 +266,7 @@ code {
 .content-view { padding: 24px 28px; max-width: 1180px; width: 100%; margin: 0 auto; }
 
 /* =====================================================
-   COMPONENTS BENTO ESTIL MOSSOSQUIZ (INICI)
+   COMPONENTS BENTO ESTIL MOSSOSQUIZ (PESTANYA INICI)
    ===================================================== */
 .mq-bento-grid {
     display: grid;
@@ -326,17 +326,18 @@ code {
 .mq-play-pill:hover { transform: scale(1.03); }
 
 .mq-secondary-pill {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.22);
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.35);
     border-radius: 99px;
-    padding: 11px 18px;
+    padding: 10px 18px;
     font-weight: 800;
     font-size: 0.84rem;
     cursor: pointer;
+    transition: background 0.15s;
 }
 
-.mq-secondary-pill:hover { background: rgba(0, 0, 0, 0.38); }
+.mq-secondary-pill:hover { background: rgba(0, 0, 0, 0.35); }
 
 .mq-col-stack {
     display: flex;
@@ -533,7 +534,7 @@ code {
     line-height: 1.4;
 }
 
-/* CARRUSEL D'ACTUALITAT 3CATINFO (NOTÍCIES ESPECÍFIQUES) */
+/* CARRUSEL D'ACTUALITAT 3CATINFO */
 .mq-news-section {
     background: linear-gradient(135deg, #B91C1C 0%, #991B1B 100%);
     border: 2px solid #EF4444;
@@ -595,8 +596,8 @@ code {
 .mq-news-track::-webkit-scrollbar { display: none; }
 
 .mq-news-card {
-    background: rgba(255, 255, 255, 0.13);
-    border: 1px solid rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 16px;
     padding: 16px;
     display: flex;
@@ -629,7 +630,7 @@ code {
     align-items: center;
     font-size: 0.75rem;
     font-weight: 800;
-    opacity: 0.94;
+    opacity: 0.92;
     margin-top: 12px;
 }
 
@@ -657,34 +658,25 @@ code {
 .mode-big strong { display: block; font-size: 0.98rem; }
 .mode-big small { font-weight: 700; opacity: 0.92; font-size: 0.8rem; }
 
-/* VISTA PESTANYA TEMARI INDEPENDENT */
+/* VISTA SEPARADA DE TEMARI */
 .temari-top-card {
     background: var(--bg-card);
     border: 2px solid var(--border);
     border-bottom: 5px solid var(--border-shadow);
-    border-radius: 22px;
-    padding: 22px 26px;
-    margin-bottom: 22px;
+    border-radius: 20px;
+    padding: 22px 24px;
+    margin-bottom: 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
     flex-wrap: wrap;
 }
 
-.temari-top-actions {
+.temari-filter-pills {
     display: flex;
-    gap: 12px;
-    align-items: center;
+    gap: 8px;
     flex-wrap: wrap;
-    min-width: 300px;
-    flex: 1;
-    justify-content: flex-end;
-}
-
-.temari-top-actions .duo-input {
-    max-width: 320px;
-    margin: 0;
 }
 
 .unit-banner { padding: 18px 22px; border-radius: 18px; color: #fff; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 12px; }
@@ -864,7 +856,7 @@ code {
         right: 0;
         top: auto;
         z-index: 60;
-        padding: 6px 4px;
+        padding: 5px 4px;
         border-right: none;
         border-top: 2px solid var(--border);
         flex-direction: row;
@@ -893,7 +885,7 @@ code {
     .nav-icon { font-size: 1.1rem; }
     .nav-label {
         display: block;
-        font-size: 0.54rem;
+        font-size: 0.55rem;
         font-weight: 900;
         white-space: nowrap;
         overflow: hidden;
