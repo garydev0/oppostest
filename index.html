@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0B192C">
     <title>Oppostest | Plataforma d'Entrenament Mossos d'Esquadra</title>
-    <meta name="description" content="Prepara les oposicions al Cos de Mossos d'Esquadra amb tests gamificats, simulacres oficials de 30 preguntes i rànquing en temps real.">
+    <meta name="description" content="Prepara les oposicions al Cos de Mossos d'Esquadra amb tests gamificats, simulacres oficials ponderats de 30 preguntes i actualitat 3CatInfo.">
 
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="shortcut icon" type="image/png" href="logo.png">
@@ -26,6 +26,7 @@
       "name": "Oppostest",
       "url": "https://oppostest.com",
       "logo": "https://oppostest.com/logo.png"
+    }
     }
     </script>
 
@@ -108,8 +109,12 @@
 
             <nav class="duo-nav">
                 <button id="tab-learn" class="duo-nav-item active" onclick="switchTab('learn')">
-                    <span class="nav-icon">🎯</span>
-                    <span class="nav-label">ENTRENAR</span>
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-label">INICI</span>
+                </button>
+                <button id="tab-temari" class="duo-nav-item" onclick="scrollToTemari()">
+                    <span class="nav-icon">📚</span>
+                    <span class="nav-label">TEMARI</span>
                 </button>
                 <button id="tab-simulacre" class="duo-nav-item" onclick="switchTab('simulacre')">
                     <span class="nav-icon">⏱️</span>
@@ -161,14 +166,13 @@
                     <span>⭐</span> <strong id="ui-saved">0</strong>
                 </div>
                 <button id="ui-pro-badge" class="pro-pill" onclick="openProModal()">GRATIS</button>
-                <!-- Botó ràpid CEO per a Mòbil i PC -->
                 <button id="ui-ceo-top-btn" class="ceo-top-pill hidden" onclick="switchTab('ceo')">👑 CEO</button>
                 <div class="top-user" id="ui-user-tag" onclick="switchTab('profile')" title="Anar al meu perfil">
                     <span id="ui-user-avatar">👮‍♂️</span> <span id="ui-user-name" class="hide-xs">Convidat</span>
                 </div>
             </header>
 
-            <!-- VISTA 1: ENTRENAMENT I MAPA SEMÀFOR -->
+            <!-- VISTA 1: INICI (ESTIL MOSSOSQUIZ BENTO + CARRUSEL 3CATINFO + TEMARI NET) -->
             <section id="view-learn" class="content-view">
                 <!-- Esdeveniment Oficial en Viu -->
                 <div id="live-event-banner" class="live-event-card hidden">
@@ -180,13 +184,119 @@
                     <button class="btn-3d btn-white" onclick="startLiveEvent()">PARTICIPAR ARA →</button>
                 </div>
 
-                <!-- 4 Modes Ràpids -->
+                <!-- BENTO GRID SUPERIOR (Inspirat en la captura 1) -->
+                <div class="mq-bento-grid">
+                    <!-- Targeta gran esquerra: AVUI ET PROPOSEM -->
+                    <div class="mq-hero-card">
+                        <div>
+                            <span id="mq-prop-code" class="mq-overline">AVUI ET PROPOSEM · TEMA A1</span>
+                            <h2 id="mq-prop-title" class="mq-hero-title">Història de Catalunya I</h2>
+                            <p id="mq-prop-status" class="mq-hero-sub">Encara no l'has treballat · Prioritat preguntes noves</p>
+                        </div>
+                        <div>
+                            <button id="mq-prop-btn" class="mq-play-pill" onclick="startRecommendedTopic()">▶ COMENÇAR</button>
+                        </div>
+                    </div>
+
+                    <!-- Columna central: RANG + OBJECTIU D'AVUI -->
+                    <div class="mq-col-stack">
+                        <div class="mq-stat-card">
+                            <div class="mq-card-tag"><span class="badge-pink">✪</span> RANG POLICIAL</div>
+                            <strong id="mq-rank-name" class="mq-big-val">Aspirant</strong>
+                            <div class="mq-mini-bar"><div id="mq-rank-bar" class="mq-mini-fill"></div></div>
+                            <small id="mq-rank-next" class="muted-sm">500 XP per a Alumne/a ISPC</small>
+                        </div>
+
+                        <div class="mq-stat-card mq-green-card">
+                            <div class="mq-card-tag">OBJECTIU D'AVUI</div>
+                            <div class="mq-goal-nums"><strong id="mq-today-count">0</strong> <span>de 100</span></div>
+                            <div class="mq-mini-bar dark-track"><div id="mq-today-bar" class="mq-mini-fill white-fill"></div></div>
+                            <small id="mq-today-left">En falten 100 preguntes avui</small>
+                        </div>
+                    </div>
+
+                    <!-- Columna dreta: EL MEU PROGRÉS + ÚLTIMA ACTIVITAT -->
+                    <div class="mq-col-stack">
+                        <div class="mq-stat-card">
+                            <div class="mq-card-tag">📈 EL MEU PROGRÉS</div>
+                            <strong id="mq-prog-headline" class="mq-big-val">Comencem!</strong>
+                            <small id="mq-prog-seen" class="muted-sm">● Temari vist: 0%</small>
+                            <small id="mq-prog-topics" class="muted-sm">● Temes treballats: 0 de 20</small>
+                        </div>
+
+                        <div class="mq-stat-card mq-blue-card">
+                            <div class="mq-card-tag">ÚLTIMA ACTIVITAT</div>
+                            <div class="mq-goal-nums"><strong id="mq-last-grade">--</strong> <span id="mq-last-topic">Cap test</span></div>
+                            <small id="mq-last-time">Fes el teu primer test avui</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BANNER RÀNQUING SETMANAL AMB PODI (Captura 1) -->
+                <div class="mq-ranking-banner" onclick="switchTab('ranking')">
+                    <div class="mq-rank-left">
+                        <span class="mq-yellow-tag">🏆 RÀNQUING SETMANAL</span>
+                        <div class="mq-rank-row-info">
+                            <div class="mq-hex-badge" id="mq-user-rank-pos">?</div>
+                            <div>
+                                <h3>Descobreix on ets a la Lliga</h3>
+                                <p>Cada encert suma XP. Entra i mira qui va davant.</p>
+                            </div>
+                        </div>
+                        <button class="mq-yellow-btn">VEURE EL RÀNQUING ▸</button>
+                    </div>
+                    <div class="mq-podium-graphic">
+                        <div class="podium-col p-2"><span>2</span></div>
+                        <div class="podium-col p-1"><i class="trophy-top">🏆</i><span>1</span></div>
+                        <div class="podium-col p-3"><span>3</span></div>
+                        <div class="podium-col p-tu"><small class="tu-tag">TU</small><span>?</span></div>
+                    </div>
+                </div>
+
+                <!-- FILA: SABIES QUE... + EL TEU PER QUÈ (Captures 1 i 2) -->
+                <div class="mq-two-cols">
+                    <div class="mq-curiosity-card" onclick="nextCuriosity()" title="Clica per veure una altra curiositat">
+                        <div class="curiosity-icon">👮‍♀️</div>
+                        <div>
+                            <span class="mq-card-tag">SABIES QUE... (Clica per canviar)</span>
+                            <p id="mq-curiosity-text" class="curiosity-body">El Cos de Mossos d'Esquadra té el seu origen històric en les Esquadres de Catalunya fundades per Pere Anton Veciana a Valls l'any 1719?</p>
+                        </div>
+                    </div>
+
+                    <div class="mq-why-card" onclick="editPersonalWhy()">
+                        <div>
+                            <span class="mq-card-tag" style="color:#F43F5E;">💌 EL TEU PER QUÈ</span>
+                            <p id="mq-why-text" class="why-body">Escriu per què vols ser mosso/a: t'ho recordarem aquí els dies que costi. ✍️</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARRUSEL D'ACTUALITAT 3CATINFO AUTOMATITZAT (Captures 2 i 3) -->
+                <div class="mq-news-section">
+                    <div class="mq-news-header">
+                        <div class="mq-news-title-group">
+                            <span class="news-pill">• ACTUALITAT</span>
+                            <span>Les notícies d'avui, de <strong>3CatInfo</strong></span>
+                        </div>
+                        <span class="news-exam-hint">↗ Poden sortir a l'examen</span>
+                    </div>
+
+                    <div class="mq-news-carousel-wrap">
+                        <button class="news-nav-arrow left" onclick="scrollNewsCarousel(-1)" aria-label="Anterior">‹</button>
+                        <div id="news-carousel-track" class="mq-news-track">
+                            <!-- Es carrega automàticament del RSS oficial de 3CatInfo -->
+                        </div>
+                        <button class="news-nav-arrow right" onclick="scrollNewsCarousel(1)" aria-label="Següent">›</button>
+                    </div>
+                </div>
+
+                <!-- 4 Modes d'Entrenament Directes -->
                 <div class="quick-modes">
                     <button class="btn-3d btn-red mode-big" onclick="switchTab('simulacre')">
                         <span class="big-icon">⏱️</span>
                         <div>
-                            <strong>SALA DE SIMULACRES <span class="pro-mini">PRO</span></strong>
-                            <small>30 preg · 35 min · Historial</small>
+                            <strong>SIMULACRE PONDERAT</strong>
+                            <small>10 A + 10 B + 10 C · 35 min</small>
                         </div>
                     </button>
                     <button class="btn-3d btn-gold mode-big" onclick="startSurvival()">
@@ -206,20 +316,18 @@
                     <button class="btn-3d btn-purple mode-big" onclick="startCommunityFailures()">
                         <span class="big-icon">☠️</span>
                         <div>
-                            <strong>TOP FALLADES CAT <span class="pro-mini">PRO</span></strong>
+                            <strong>TOP FALLADES CAT</strong>
                             <small>Les més difícils dels opositors</small>
                         </div>
                     </button>
                 </div>
 
-                <!-- Llegenda del Semàfor -->
-                <div class="legend-bar">
-                    <span><strong>Semàfor de domini:</strong></span>
-                    <span class="leg-item"><i class="dot dot-gray"></i> Pendent</span>
-                    <span class="leg-item"><i class="dot dot-red"></i> Menys de 5</span>
-                    <span class="leg-item"><i class="dot dot-yellow"></i> 5.0 - 6.9</span>
-                    <span class="leg-item"><i class="dot dot-green"></i> 7.0 - 8.9</span>
-                    <span class="leg-item"><i class="dot dot-gold"></i> 9.0 - 10</span>
+                <!-- TEMARI OFICIAL INTUÏTIU (Sense semàfor, amb títols oficials i progrés de preguntes vistes) -->
+                <div id="temari-anchor" class="temari-header-row">
+                    <div>
+                        <h2>📚 Temari Oficial Mossos d'Esquadra</h2>
+                        <p class="muted-sm">L'algoritme prioritza sempre les preguntes que encara no has vist en cada tema.</p>
+                    </div>
                 </div>
 
                 <!-- Àmbit A -->
@@ -230,7 +338,7 @@
                     </div>
                     <button class="btn-3d btn-white btn-sm" onclick="startAmbit('A')">🔀 Test Bloc A</button>
                 </div>
-                <div id="nodes-A" class="nodes-grid"></div>
+                <div id="nodes-A" class="topics-clean-grid"></div>
 
                 <!-- Àmbit B -->
                 <div class="unit-banner unit-b">
@@ -240,7 +348,7 @@
                     </div>
                     <button class="btn-3d btn-white btn-sm" onclick="startAmbit('B')">🔀 Test Bloc B</button>
                 </div>
-                <div id="nodes-B" class="nodes-grid"></div>
+                <div id="nodes-B" class="topics-clean-grid"></div>
 
                 <!-- Àmbit C -->
                 <div class="unit-banner unit-c">
@@ -250,21 +358,21 @@
                     </div>
                     <button class="btn-3d btn-white btn-sm" onclick="startAmbit('C')">🔀 Test Bloc C</button>
                 </div>
-                <div id="nodes-C" class="nodes-grid"></div>
+                <div id="nodes-C" class="topics-clean-grid"></div>
             </section>
 
-            <!-- VISTA 2: SALA DE SIMULACRES OFICIALS (Pestanya pròpia) -->
+            <!-- VISTA 2: SALA DE SIMULACRES OFICIALS PONDERATS -->
             <section id="view-simulacre-hub" class="content-view hidden">
                 <div class="profile-grid">
                     <div class="card-clean">
-                        <span class="tag-pill">CONVOCATÒRIA MOSSOS D'ESQUADRA</span>
+                        <span class="tag-pill">ALGORITME PONDERAT OFICIAL (10 + 10 + 10)</span>
                         <h2 class="mt-2">⏱️ Simulacre d'Examen Oficial</h2>
-                        <p class="muted-sm mt-2">Entrena amb les condicions exactes de la prova oficial de coneixements de l'ISPC:</p>
+                        <p class="muted-sm mt-2">Cada simulacre genera un examen equilibrat prioritzant preguntes que encara no has vist:</p>
                         <div class="user-detail-grid mt-3">
-                            <div class="u-stat-box"><small>Preguntes</small><strong>30 preguntes (A, B i C)</strong></div>
-                            <div class="u-stat-box"><small>Temps Màxim</small><strong>35 minuts</strong></div>
-                            <div class="u-stat-box"><small>Penalització</small><strong>-1/3 per errada</strong></div>
-                            <div class="u-stat-box"><small>Navegació</small><strong>Lliure (1 a 30) i Dubtes</strong></div>
+                            <div class="u-stat-box"><small>Ponderació Exacta</small><strong>10 Àmbit A · 10 B · 10 C</strong></div>
+                            <div class="u-stat-box"><small>Temps Oficial</small><strong>35 minuts (30 preg.)</strong></div>
+                            <div class="u-stat-box"><small>Fórmula Oficial</small><strong>-1/3 per errada</strong></div>
+                            <div class="u-stat-box"><small>Full de Respostes</small><strong>Navegable (1 a 30) i Dubtes</strong></div>
                         </div>
                         <button class="btn-3d btn-red w-full mt-3" onclick="launchOfficialSimulacre()">🚀 COMENÇAR SIMULACRE OFICIAL ARA</button>
                     </div>
@@ -282,7 +390,6 @@
             <!-- VISTA 3: CENTRE DE REPÀS (ERRORS I GUARDADES AMB ESTRELLA) -->
             <section id="view-errors-hub" class="content-view hidden">
                 <div class="profile-grid">
-                    <!-- Targeta Errors -->
                     <div class="card-clean">
                         <div class="modal-icon">🧠</div>
                         <h2 id="errors-hub-title">Preguntes Fallades</h2>
@@ -292,7 +399,6 @@
                         </div>
                     </div>
 
-                    <!-- Targeta Guardades ⭐ -->
                     <div class="card-clean">
                         <div class="modal-icon">⭐</div>
                         <h2 id="saved-hub-title">Preguntes Guardades</h2>
@@ -332,7 +438,7 @@
                 </div>
             </section>
 
-            <!-- VISTA 5: PANTALLA DE PERFIL D'USUARI I DOMINI PER ÀMBITS -->
+            <!-- VISTA 5: PANTALLA DE PERFIL D'USUARI -->
             <section id="view-profile" class="content-view hidden">
                 <div class="profile-grid">
                     <div class="card-clean">
@@ -359,8 +465,8 @@
                         <label class="form-label mt-2">Nom públic / Àlies (visible a la Lliga):</label>
                         <input type="text" id="profile-name-input" class="duo-input" placeholder="Ex: Marc_Mossos27" maxlength="28">
 
-                        <label class="form-label mt-2">Objectiu o Promoció:</label>
-                        <input type="text" id="profile-goal-input" class="duo-input" placeholder="Ex: Futura Promoció ISPC · Objectiu Apte" maxlength="50">
+                        <label class="form-label mt-2">El teu per què (Motivació personal):</label>
+                        <input type="text" id="profile-goal-input" class="duo-input" placeholder="Ex: Vull ser mosso per vocació de servei públic" maxlength="90">
 
                         <button class="btn-3d btn-green w-full mt-3" onclick="saveUserProfileData()">💾 GUARDAR DADES DEL PERFIL</button>
                     </div>
@@ -373,8 +479,8 @@
                                 <strong id="prof-stat-pro">GRATIS</strong>
                             </div>
                             <div class="u-stat-box">
-                                <small>Amics Convidats</small>
-                                <strong id="prof-stat-invites">0 / 3</strong>
+                                <small>Preguntes Úniques Vistes</small>
+                                <strong id="prof-stat-seen-count">0</strong>
                             </div>
                             <div class="u-stat-box">
                                 <small>Nota Mitjana Global</small>
@@ -386,23 +492,23 @@
                             </div>
                         </div>
 
-                        <!-- Desglossament per Àmbits estil mossosquiz -->
                         <div class="ambit-bars-box mt-2">
                             <div class="ambit-bar-row">
                                 <span>Àmbit A (Entorn)</span>
-                                <strong id="prof-avg-a">0.0 / 10</strong>
+                                <strong id="prof-avg-a">Pendent</strong>
                             </div>
                             <div class="ambit-bar-row">
                                 <span>Àmbit B (Institucional)</span>
-                                <strong id="prof-avg-b">0.0 / 10</strong>
+                                <strong id="prof-avg-b">Pendent</strong>
                             </div>
                             <div class="ambit-bar-row">
                                 <span>Àmbit C (Seguretat i Policia)</span>
-                                <strong id="prof-avg-c">0.0 / 10</strong>
+                                <strong id="prof-avg-c">Pendent</strong>
                             </div>
                         </div>
 
                         <div class="profile-actions-box mt-3">
+                            <button class="btn-3d btn-gray w-full mb-2" onclick="resetSeenQuestionsHistory()">♻️ Reiniciar Historial de Preguntes Vistes</button>
                             <button class="btn-3d btn-gray w-full mb-2" onclick="forceReloadQuestionBanks()">🔄 Sincronitzar Temari amb el Núvol</button>
                             <button id="profile-auth-btn" class="btn-3d btn-blue w-full" onclick="handleAuthClick()">👤 INICIAR SESSIÓ AMB GOOGLE</button>
                         </div>
@@ -552,7 +658,7 @@
                         <div class="r-pill gray"><strong id="res-blank">0</strong><span>En blanc</span></div>
                     </div>
 
-                    <button class="btn-3d btn-blue w-full" onclick="switchTab('learn')">TORNAR AL TAULER</button>
+                    <button class="btn-3d btn-blue w-full" onclick="switchTab('learn')">TORNAR A L'INICI</button>
 
                     <div id="review-container" class="review-list"></div>
                 </div>
