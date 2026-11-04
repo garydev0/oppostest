@@ -41,6 +41,79 @@ body {
 .muted-sm { font-size: 0.88rem; color: var(--muted); line-height: 1.4; }
 .border-gold { border-color: var(--gold) !important; }
 
+/* PANTALLA DE CÀRREGA INICIAL (SPLASH SCREEN) */
+.splash-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--navy);
+    z-index: 12000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    transition: opacity 0.35s ease;
+}
+
+.splash-box {
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    color: #fff;
+}
+
+.splash-logo {
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
+    border-radius: 22px;
+    margin-bottom: 14px;
+    animation: pulseLogo 1.6s infinite ease-in-out;
+}
+
+@keyframes pulseLogo {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+}
+
+.splash-title {
+    font-size: 1.9rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+
+.splash-status {
+    font-size: 0.9rem;
+    color: #94A3B8;
+    font-weight: 700;
+    margin-bottom: 18px;
+}
+
+.splash-bar-track {
+    width: 100%;
+    height: 14px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.splash-bar-fill {
+    height: 100%;
+    width: 15%;
+    background: var(--green);
+    border-radius: 99px;
+    transition: width 0.25s ease;
+}
+
+/* LOGO SIDEBAR */
+.sidebar-logo-img {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
 /* TOASTS FLOTANTS */
 .toast-container {
     position: fixed;
@@ -98,10 +171,7 @@ body {
     animation: popIn 0.2s ease;
 }
 
-.modal-wide {
-    max-width: 780px;
-    text-align: left;
-}
+.modal-wide { max-width: 780px; text-align: left; }
 
 @keyframes popIn {
     from { transform: scale(0.92); opacity: 0; }
@@ -162,30 +232,26 @@ body {
 .logo-text { display: block; font-size: 1.35rem; font-weight: 900; color: var(--navy); line-height: 1; }
 .logo-sub { font-size: 0.75rem; font-weight: 800; color: var(--muted); }
 
-.duo-nav { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
+.duo-nav { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
 
-/* BOTONS DE NAVEGACIÓ ESTIL DUOLINGO ( Blau actiu corregit ) */
 .duo-nav-item {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 13px 16px;
+    padding: 12px 16px;
     border-radius: 16px;
     border: 2px solid transparent;
     border-bottom: 4px solid transparent;
     background: transparent;
     color: var(--muted);
     font-weight: 900;
-    font-size: 0.92rem;
+    font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.15s ease;
     outline: none;
 }
 
-.duo-nav-item:hover {
-    background: #F1F5F9;
-    color: var(--navy);
-}
+.duo-nav-item:hover { background: #F1F5F9; color: var(--navy); }
 
 .duo-nav-item.active {
     background: #DDF4FF !important;
@@ -194,13 +260,8 @@ body {
     color: var(--blue) !important;
 }
 
-.ceo-btn {
-    background: #FEF9C3;
-    border-color: var(--gold);
-    color: #A16207;
-}
-
-.nav-icon { font-size: 1.35rem; }
+.ceo-btn { background: #FEF9C3; border-color: var(--gold); color: #A16207; }
+.nav-icon { font-size: 1.3rem; }
 
 .pill-count {
     margin-left: auto;
@@ -285,6 +346,9 @@ body {
 .pro-pill.is-pro { background: var(--gold); color: var(--navy); }
 
 .top-user {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-weight: 800;
     font-size: 0.85rem;
     color: var(--navy);
@@ -292,9 +356,73 @@ body {
     padding: 7px 14px;
     border-radius: 12px;
     cursor: pointer;
+    transition: background 0.15s;
 }
 
+.top-user:hover { background: #CBD5E1; }
+
 .content-view { padding: 28px; }
+
+/* PANTALLA DE PERFIL D'USUARI */
+.profile-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 22px;
+}
+
+.profile-header-box {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+    border-bottom: 2px solid var(--border);
+}
+
+.profile-avatar-circle {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: #E0F2FE;
+    border: 3px solid var(--blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 900;
+    color: var(--navy);
+    margin-bottom: 6px;
+}
+
+.avatar-picker {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.avatar-opt {
+    background: #F8FAFC;
+    border: 2px solid var(--border);
+    border-bottom: 4px solid var(--border-shadow);
+    border-radius: 12px;
+    padding: 8px 0;
+    font-size: 1.35rem;
+    cursor: pointer;
+    transition: 0.1s;
+}
+
+.avatar-opt.selected {
+    background: #DDF4FF;
+    border-color: var(--blue);
+    border-bottom-color: var(--blue-shadow);
+}
 
 /* ESDEVENIMENT EN VIU */
 .live-event-card {
@@ -429,7 +557,6 @@ body {
     border-radius: 99px;
 }
 
-/* Estats del Semàfor */
 .node-red { border-color: #FCA5A5; border-bottom-color: var(--red); }
 .node-red .node-circle { background: #FEE2E2; border-color: var(--red); color: #991B1B; }
 .node-red .node-grade { background: #FEE2E2; color: #991B1B; }
@@ -462,11 +589,7 @@ body {
 .referral-card h3 { font-size: 1.3rem; margin: 6px 0 8px; }
 .referral-card p { font-size: 0.9rem; color: #CBD5E1; margin-bottom: 14px; }
 .ref-box { display: flex; gap: 10px; align-items: center; }
-.ref-redeem {
-    background: rgba(255,255,255,0.07);
-    padding: 18px;
-    border-radius: 16px;
-}
+.ref-redeem { background: rgba(255,255,255,0.07); padding: 18px; border-radius: 16px; }
 
 /* PANTALLA DE TEST */
 .quiz-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
@@ -582,37 +705,15 @@ body {
     border-bottom-color: var(--green);
 }
 
-.bank-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
+.bank-head { display: flex; justify-content: space-between; align-items: center; }
 .bank-head strong { font-size: 1.05rem; color: var(--navy); font-weight: 900; }
 .bank-status { font-size: 0.75rem; font-weight: 900; padding: 3px 8px; border-radius: 99px; background: #E2E8F0; color: var(--muted); }
 .bank-card.online .bank-status { background: #DCFCE7; color: #166534; }
 
-.bank-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-}
+.bank-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
-.topic-manager-toolbar {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
-.topic-questions-scroll {
-    max-height: 440px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-right: 4px;
-}
+.topic-manager-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+.topic-questions-scroll { max-height: 440px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
 
 .q-edit-item {
     border: 2px solid var(--border);
@@ -650,7 +751,7 @@ body {
     border-radius: 12px;
     font-weight: 800;
     font-size: 0.92rem;
-    margin-top: 6px;
+    margin-top: 4px;
     margin-bottom: 6px;
 }
 
@@ -716,6 +817,7 @@ body {
     .duo-logo, .sidebar-footer, .nav-label, .hide-sm { display: none; }
     .duo-nav { flex-direction: row; justify-content: space-around; width: 100%; }
     .content-view { padding: 16px 16px 95px; }
-    .referral-card { grid-template-columns: 1fr; }
+    .referral-card, .profile-grid { grid-template-columns: 1fr; }
     .user-detail-grid { grid-template-columns: 1fr; }
+    .avatar-picker { grid-template-columns: repeat(4, 1fr); }
 }
