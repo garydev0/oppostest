@@ -4,14 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0B192C">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Oppostest | Mossos d'Esquadra</title>
+    <title>Oppostest | Plataforma d'Entrenament Mossos d'Esquadra</title>
+    <meta name="description" content="Prepara les oposicions al Cos de Mossos d'Esquadra amb tests gamificats, simulacres oficials de 30 preguntes i rànquing en temps real.">
+
+    <!-- ICONA DE PESTANYA (FAVICON) I DISPOSITIUS MÒBILS AMB EL TEU LOGO.PNG -->
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="shortcut icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
     <link rel="manifest" href="manifest.json">
+
+    <!-- OPEN GRAPH I SEO PER A INDEXADORS (GOOGLE / WHATSAPP / XARXES) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Oppostest | Tests Oficials Mossos d'Esquadra">
+    <meta property="og:description" content="Entrena els 20 temes oficials, fes simulacres cronometrats i competeix a la lliga d'opositors.">
+    <meta property="og:image" content="https://oppostest.com/logo.png">
+    <meta property="og:url" content="https://oppostest.com">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <!-- DADES ESTRUCTURADES PER AL LOGO A GOOGLE SEARCH -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Oppostest",
+      "url": "https://oppostest.com",
+      "logo": "https://oppostest.com/logo.png"
+    }
+    </script>
+
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- PANTALLA DE CÀRREGA INICIAL ÚTIL (SPLASH SCREEN) -->
+    <div id="splash-screen" class="splash-overlay">
+        <div class="splash-box">
+            <img src="logo.png" alt="Oppostest Logo" class="splash-logo" onerror="this.style.display='none'">
+            <h1 class="splash-title">OPPOSTEST</h1>
+            <p id="splash-status" class="splash-status">Inicialitzant plataforma i temari oficial...</p>
+            <div class="splash-bar-track">
+                <div id="splash-bar-fill" class="splash-bar-fill"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Pantalla de bloqueig si l'usuari està BANEJAT pel CEO -->
     <div id="ban-screen" class="ban-overlay hidden">
         <div class="modal-card">
@@ -66,7 +102,7 @@
         <!-- BARRA LATERAL (PC) / INFERIOR (MÒBIL) -->
         <aside class="duo-sidebar">
             <div class="duo-logo" onclick="switchTab('learn')">
-                <span class="logo-badge">OT</span>
+                <img src="logo.png" alt="OT" class="sidebar-logo-img" onerror="this.outerHTML='<span class=\'logo-badge\'>OT</span>'">
                 <div>
                     <span class="logo-text">OPPOSTEST</span>
                     <small class="logo-sub">Mossos d'Esquadra</small>
@@ -90,6 +126,10 @@
                 <button id="tab-ranking" class="duo-nav-item" onclick="switchTab('ranking')">
                     <span class="nav-icon">🏆</span>
                     <span class="nav-label">LLIGA i PRO</span>
+                </button>
+                <button id="tab-profile" class="duo-nav-item" onclick="switchTab('profile')">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-label">PERFIL</span>
                 </button>
                 <button id="tab-ceo" class="duo-nav-item ceo-btn hidden" onclick="switchTab('ceo')">
                     <span class="nav-icon">👑</span>
@@ -121,7 +161,9 @@
                     <span>❤️</span> <strong id="ui-errors">0</strong>
                 </div>
                 <button id="ui-pro-badge" class="pro-pill" onclick="openProModal()">GRATIS</button>
-                <div class="top-user" id="ui-user-tag" onclick="handleAuthClick()">Convidat</div>
+                <div class="top-user" id="ui-user-tag" onclick="switchTab('profile')" title="Anar al meu perfil">
+                    <span id="ui-user-avatar">👮‍♂️</span> <span id="ui-user-name">Convidat</span>
+                </div>
             </header>
 
             <!-- VISTA 1: ENTRENAMENT I MAPA SEMÀFOR -->
@@ -209,12 +251,12 @@
                 <div id="nodes-C" class="nodes-grid"></div>
             </section>
 
-            <!-- VISTA ESPECIAL: PANTALLA D'ERRORS QUAN ESTÀ BUIDA O LLESTA -->
+            <!-- VISTA ESPECIAL: HUB D'ERRORS -->
             <section id="view-errors-hub" class="content-view hidden">
                 <div class="results-box">
                     <div class="modal-icon">🧠</div>
-                    <h2 id="errors-hub-title"> Centre de Repàs d'Errors</h2>
-                    <p id="errors-hub-desc" class="modal-text mt-2">Aquí s'acumulen totes les preguntes que falles als tests i simulacres. Quan les encertis en aquest mode, quedaran netejades.</p>
+                    <h2 id="errors-hub-title">Centre de Repàs d'Errors</h2>
+                    <p id="errors-hub-desc" class="modal-text mt-2">Aquí s'acumulen totes les preguntes que falles als tests i simulacres.</p>
                     <div class="mt-3">
                         <button id="btn-start-errors-now" class="btn-3d btn-blue w-full" onclick="launchErrorsQuiz()">COMENÇAR REPÀS D'ERRORS</button>
                     </div>
@@ -246,6 +288,78 @@
                         <button class="btn-3d btn-gray btn-sm" onclick="loadRanking()">🔄 Actualitzar</button>
                     </div>
                     <div id="ranking-list" class="ranking-list"></div>
+                </div>
+            </section>
+
+            <!-- VISTA NOVA: PANTALLA DE PERFIL D'USUARI -->
+            <section id="view-profile" class="content-view hidden">
+                <div class="profile-grid">
+                    <!-- Targeta esquerra: Editar Dades i Avatar -->
+                    <div class="card-clean">
+                        <div class="profile-header-box">
+                            <div id="profile-big-avatar" class="profile-avatar-circle">👮‍♂️</div>
+                            <div>
+                                <h2 id="profile-display-title">Opositor</h2>
+                                <p id="profile-email-subtitle" class="muted-sm">Mode Convidat (Sense sessió)</p>
+                            </div>
+                        </div>
+
+                        <label class="form-label">Tria la teva insígnia / avatar:</label>
+                        <div id="avatar-selector" class="avatar-picker">
+                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('👮‍♂️')">👮‍♂️</button>
+                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('👮‍♀️')">👮‍♀️</button>
+                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('🚓')">🚓</button>
+                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('🛡️')">🛡️</button>
+                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('🎯')">🎯</button>
+                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('🔥')">🔥</button>
+                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('⚡')">⚡</button>
+                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('🦁')">🦁</button>
+                        </div>
+
+                        <label class="form-label mt-2">Nom públic / Àlies (visible a la Lliga):</label>
+                        <input type="text" id="profile-name-input" class="duo-input" placeholder="Ex: Marc_Mossos27" maxlength="28">
+
+                        <label class="form-label mt-2">Objectiu o Promoció:</label>
+                        <input type="text" id="profile-goal-input" class="duo-input" placeholder="Ex: Futura Promoció ISPC · Objectiu Apte" maxlength="50">
+
+                        <button class="btn-3d btn-green w-full mt-3" onclick="saveUserProfileData()">💾 GUARDAR DADES DEL PERFIL</button>
+                    </div>
+
+                    <!-- Targeta dreta: Estadístiques i Compte -->
+                    <div class="card-clean">
+                        <h3>📊 El teu Expedient d'Opositor</h3>
+                        <div class="user-detail-grid mt-2">
+                            <div class="u-stat-box">
+                                <small>Estat de Subscripció</small>
+                                <strong id="prof-stat-pro">GRATIS</strong>
+                            </div>
+                            <div class="u-stat-box">
+                                <small>Amics Convidats</small>
+                                <strong id="prof-stat-invites">0 / 3</strong>
+                            </div>
+                            <div class="u-stat-box">
+                                <small>Nota Mitjana Global</small>
+                                <strong id="prof-stat-avg">0.00</strong>
+                            </div>
+                            <div class="u-stat-box">
+                                <small>Temes Aprovats (≥5)</small>
+                                <strong id="prof-stat-passed">0 / 20</strong>
+                            </div>
+                            <div class="u-stat-box">
+                                <small>Punts d'Experiència</small>
+                                <strong id="prof-stat-xp">0 XP</strong>
+                            </div>
+                            <div class="u-stat-box">
+                                <small>Ratxa Diària Actual</small>
+                                <strong id="prof-stat-streak">0 dies 🔥</strong>
+                            </div>
+                        </div>
+
+                        <div class="profile-actions-box mt-3">
+                            <button class="btn-3d btn-gray w-full mb-2" onclick="forceReloadQuestionBanks()">🔄 Sincronitzar Temari amb el Núvol</button>
+                            <button id="profile-auth-btn" class="btn-3d btn-navy w-full" onclick="handleAuthClick()">👤 INICIAR SESSIÓ AMB GOOGLE</button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
