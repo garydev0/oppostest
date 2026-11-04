@@ -7,13 +7,11 @@
     <title>Oppostest | Plataforma d'Entrenament Mossos d'Esquadra</title>
     <meta name="description" content="Prepara les oposicions al Cos de Mossos d'Esquadra amb tests gamificats, simulacres oficials de 30 preguntes i rànquing en temps real.">
 
-    <!-- ICONA DE PESTANYA (FAVICON) I DISPOSITIUS MÒBILS AMB EL TEU LOGO.PNG -->
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="shortcut icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="logo.png">
     <link rel="manifest" href="manifest.json">
 
-    <!-- OPEN GRAPH I SEO PER A INDEXADORS (GOOGLE / WHATSAPP / XARXES) -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="Oppostest | Tests Oficials Mossos d'Esquadra">
     <meta property="og:description" content="Entrena els 20 temes oficials, fes simulacres cronometrats i competeix a la lliga d'opositors.">
@@ -21,7 +19,6 @@
     <meta property="og:url" content="https://oppostest.com">
     <meta name="twitter:card" content="summary_large_image">
 
-    <!-- DADES ESTRUCTURADES PER AL LOGO A GOOGLE SEARCH -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -36,7 +33,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- PANTALLA DE CÀRREGA INICIAL ÚTIL (SPLASH SCREEN) -->
+    <!-- PANTALLA DE CÀRREGA INICIAL (SPLASH SCREEN) -->
     <div id="splash-screen" class="splash-overlay">
         <div class="splash-box">
             <img src="logo.png" alt="Oppostest Logo" class="splash-logo" onerror="this.style.display='none'">
@@ -58,10 +55,10 @@
         </div>
     </div>
 
-    <!-- Contenidor de Notificacions Flotants (Toasts) -->
+    <!-- Notificacions Flotants (Toasts) -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- Finestra Modal Genèrica Personalitzada -->
+    <!-- Finestra Modal Personalitzada -->
     <div id="modal-overlay" class="modal-overlay hidden">
         <div class="modal-card">
             <div id="modal-icon" class="modal-icon">💡</div>
@@ -99,7 +96,7 @@
     </div>
 
     <div class="duo-layout">
-        <!-- BARRA LATERAL (PC) / INFERIOR (MÒBIL) -->
+        <!-- BARRA LATERAL -->
         <aside class="duo-sidebar">
             <div class="duo-logo" onclick="switchTab('learn')">
                 <img src="logo.png" alt="OT" class="sidebar-logo-img" onerror="this.outerHTML='<span class=\'logo-badge\'>OT</span>'">
@@ -141,7 +138,7 @@
                 <button id="btn-pro-sidebar" class="btn-3d btn-gold w-full mb-2" onclick="openProModal()">
                     💎 DESBLOQUEJAR PRO
                 </button>
-                <button id="btn-auth-trigger" class="btn-3d btn-navy w-full" onclick="handleAuthClick()">
+                <button id="btn-auth-trigger" class="btn-3d btn-blue w-full" onclick="handleAuthClick()">
                     👤 ENTRAR AMB GOOGLE
                 </button>
             </div>
@@ -149,7 +146,7 @@
 
         <!-- ZONA PRINCIPAL -->
         <main class="duo-main">
-            <!-- Barra superior gamificada -->
+            <!-- Barra superior integrada en Blau Nit -->
             <header class="duo-topbar">
                 <div class="top-stat" title="Ratxa de dies seguits entrenant">
                     <span>🔥</span> <strong id="ui-daily-streak">0</strong> <small class="hide-sm">dies</small>
@@ -168,7 +165,7 @@
 
             <!-- VISTA 1: ENTRENAMENT I MAPA SEMÀFOR -->
             <section id="view-learn" class="content-view">
-                <!-- Esdeveniment Oficial en Viu (/mossos_events) -->
+                <!-- Esdeveniment Oficial en Viu -->
                 <div id="live-event-banner" class="live-event-card hidden">
                     <div class="live-info">
                         <span class="live-tag">🔴 ESDEVENIMENT OFICIAL EN VIU</span>
@@ -291,10 +288,9 @@
                 </div>
             </section>
 
-            <!-- VISTA NOVA: PANTALLA DE PERFIL D'USUARI -->
+            <!-- VISTA: PANTALLA DE PERFIL D'USUARI -->
             <section id="view-profile" class="content-view hidden">
                 <div class="profile-grid">
-                    <!-- Targeta esquerra: Editar Dades i Avatar -->
                     <div class="card-clean">
                         <div class="profile-header-box">
                             <div id="profile-big-avatar" class="profile-avatar-circle">👮‍♂️</div>
@@ -325,7 +321,6 @@
                         <button class="btn-3d btn-green w-full mt-3" onclick="saveUserProfileData()">💾 GUARDAR DADES DEL PERFIL</button>
                     </div>
 
-                    <!-- Targeta dreta: Estadístiques i Compte -->
                     <div class="card-clean">
                         <h3>📊 El teu Expedient d'Opositor</h3>
                         <div class="user-detail-grid mt-2">
@@ -357,13 +352,13 @@
 
                         <div class="profile-actions-box mt-3">
                             <button class="btn-3d btn-gray w-full mb-2" onclick="forceReloadQuestionBanks()">🔄 Sincronitzar Temari amb el Núvol</button>
-                            <button id="profile-auth-btn" class="btn-3d btn-navy w-full" onclick="handleAuthClick()">👤 INICIAR SESSIÓ AMB GOOGLE</button>
+                            <button id="profile-auth-btn" class="btn-3d btn-blue w-full" onclick="handleAuthClick()">👤 INICIAR SESSIÓ AMB GOOGLE</button>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- VISTA 3: PANEL CEO (Només gerardlopezgarcia1@gmail.com) -->
+            <!-- VISTA 3: PANEL CEO -->
             <section id="view-ceo" class="content-view hidden">
                 <div class="ceo-header">
                     <div>
@@ -378,10 +373,9 @@
                     <div class="card-head">
                         <div>
                             <h3>📁 Gestor d'Arxius i Bancs de Preguntes a Firestore</h3>
-                            <p class="muted-sm">Pots substituir qualsevol tema pujant un <code>.json</code> des del teu PC, editar preguntes soltes o esborrar el banc del núvol.</p>
+                            <p class="muted-sm">Pots substituir qualsevol tema pujant un <code>.json</code> des del teu PC, editar preguntes soltes o descarregar còpia.</p>
                         </div>
                         <div class="row-btns">
-                            <button class="btn-3d btn-gold btn-sm" onclick="ceoMigrateAllJson()">🚀 Sincronitzar 20 JSON locals</button>
                             <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadBanksStatus()">🔄 Actualitzar Estat</button>
                         </div>
                     </div>
@@ -402,7 +396,6 @@
                 </div>
 
                 <div class="ceo-grid">
-                    <!-- Alerta Global -->
                     <div class="card-clean">
                         <h3>📢 Alerta Superior Web</h3>
                         <input type="text" id="ceo-alert-input" class="duo-input" placeholder="Missatge d'alerta...">
@@ -412,7 +405,6 @@
                         </div>
                     </div>
 
-                    <!-- Esdeveniment Oficial en Viu -->
                     <div class="card-clean">
                         <h3>🔴 Llançar Simulacre en Viu (30 preg · 35 min)</h3>
                         <input type="text" id="ceo-ev-title" class="duo-input" placeholder="Ex: Simulacre Oficial Diumenge">
@@ -424,7 +416,6 @@
                     </div>
                 </div>
 
-                <!-- Reportes d'errors -->
                 <div class="card-clean mt-3">
                     <div class="card-head">
                         <h3>🚩 Errors Reportats pels Opositors</h3>
@@ -434,7 +425,7 @@
                 </div>
             </section>
 
-            <!-- VISTA 4: PANTALLA DE TEST -->
+            <!-- VISTA 4: PANTALLA DE TEST I NAVEGADOR D'EXAMEN -->
             <section id="view-quiz" class="content-view hidden">
                 <div class="quiz-header">
                     <button class="btn-icon" onclick="confirmExitQuiz()">✕</button>
@@ -443,6 +434,19 @@
                     </div>
                     <span id="quiz-timer" class="timer-pill hidden">35:00</span>
                     <span id="quiz-counter" class="counter-pill">1/30</span>
+                </div>
+
+                <!-- NAVEGADOR DE PREGUNTES 1-30 (Exclusiu per a Simulacres) -->
+                <div id="simulacre-nav-panel" class="simulacre-nav-panel hidden">
+                    <div class="sim-nav-header">
+                        <span><strong>Full de Respostes (Clica per saltar de pregunta):</strong></span>
+                        <div class="sim-legend">
+                            <span><i class="dot dot-green"></i> Contestada</span>
+                            <span><i class="dot dot-yellow"></i> Amb dubte</span>
+                            <span><i class="dot dot-gray"></i> En blanc</span>
+                        </div>
+                    </div>
+                    <div id="simulacre-nav-grid" class="simulacre-nav-grid"></div>
                 </div>
 
                 <div class="quiz-body">
@@ -455,14 +459,24 @@
                     <div id="options-container" class="duo-options"></div>
                 </div>
 
-                <!-- Barra de correcció inferior -->
+                <!-- Barra inferior: Mode Estudi vs Mode Simulacre Navegable -->
                 <div id="quiz-bottom-bar" class="quiz-bottom-bar">
                     <div id="feedback-content" class="feedback-info hidden">
                         <strong id="feedback-title">✅ Correcte!</strong>
                         <p id="feedback-explanation"></p>
                     </div>
-                    <div class="quiz-actions">
-                        <button id="btn-skip" class="btn-3d btn-gray hidden" onclick="skipQuestion()">DEIXAR EN BLANC</button>
+
+                    <!-- Controls de navegació lliure per a Simulacre -->
+                    <div id="simulacre-controls" class="simulacre-controls hidden">
+                        <button id="btn-prev-q" class="btn-3d btn-gray" onclick="prevQuestion()">← Anterior</button>
+                        <button id="btn-doubt-q" class="btn-3d btn-gold" onclick="toggleDoubtCurrent()">❓ Dubte</button>
+                        <button id="btn-clear-q" class="btn-3d btn-gray" onclick="clearCurrentAnswer()">Esborrar</button>
+                        <button id="btn-next-sim" class="btn-3d btn-blue" onclick="nextQuestion()">Següent →</button>
+                        <button id="btn-finish-sim" class="btn-3d btn-green" onclick="confirmFinishSimulacre()">✅ Entregar Examen</button>
+                    </div>
+
+                    <!-- Controls clàssics per a Mode Estudi / Supervivència -->
+                    <div id="study-controls" class="quiz-actions">
                         <button id="btn-next" class="btn-3d btn-green hidden" onclick="nextQuestion()">CONTINUAR (Enter)</button>
                     </div>
                 </div>
@@ -483,7 +497,7 @@
                         <div class="r-pill gray"><strong id="res-blank">0</strong><span>En blanc</span></div>
                     </div>
 
-                    <button class="btn-3d btn-navy w-full" onclick="switchTab('learn')">TORNAR AL TAULER</button>
+                    <button class="btn-3d btn-blue w-full" onclick="switchTab('learn')">TORNAR AL TAULER</button>
 
                     <div id="review-container" class="review-list"></div>
                 </div>
