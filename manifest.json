@@ -1,0 +1,9 @@
+{
+  "name": "Oppostest | Mossos d'Esquadra",
+  "short_name": "Oppostest",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0B192C",
+  "theme_color": "#0B192C",
+  "orientation": "portrait"
+}
