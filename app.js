@@ -4,6 +4,10 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, ad
 
 const CEO_EMAIL = "gerardlopezgarcia1@gmail.com";
 
+// Paràmetres Oficials d'Examen Mossos d'Esquadra
+const EXAM_QUESTIONS_COUNT = 30;
+const EXAM_DURATION_SECONDS = 35 * 60; // 35 minuts
+
 // Configuració oficial del teu projecte Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyAK8r_-CMw1626LIFnrn9NcVkIcvYv2Elo",
@@ -20,7 +24,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 let currentUser = null;
 
-// Temari Oficial
+// Temari Oficial (20 temes)
 const TOPICS = {
     A: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'],
     B: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8'],
@@ -28,8 +32,12 @@ const TOPICS = {
 };
 const ALL_FILES = [...TOPICS.A, ...TOPICS.B, ...TOPICS.C];
 
-// Memòria cau per estalviar lectures de Firestore
+// Caché intel·ligent per estalviar lectures de Firebase
 const questionCache = {};
+let allUsersCache = [];
+let currentUploadTargetCode = null;
+let currentManagedTopicCode = null;
+let currentManagedQuestions = [];
 
 // Estadístiques de l'opositor
 let userStats = JSON.parse(localStorage.getItem('oppostest_pro_stats')) || {
@@ -38,10 +46,11 @@ let userStats = JSON.parse(localStorage.getItem('oppostest_pro_stats')) || {
     lastStudyDate: null,
     bestStreak: 0,
     failedQuestions: [],
-    topicScores: {}, // Ex: { a1: 8.5, b2: 4.0 }
+    topicScores: {},
     freeProTrialsUsed: 0,
-    unlockedExams: 0, // Si és true o >= 3 amics convidats -> Usuari PRO
-    redeemedFriend: false
+    unlockedExams: 0, // Contador d'amics convidats (>=3 o true = PRO)
+    redeemedFriend: false,
+    banned: false
 };
 
 let quizState = {
@@ -71,11 +80,17 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 3400);
 }
 
-function showModal({ icon = '💡', title, text, showInput = false, placeholder = '', confirmText = 'Acceptar', cancelText = 'Cancel·lar', onConfirm }) {
+function showModal({ icon = '💡', title, text, html = null, showInput = false, placeholder = '', confirmText = 'Acceptar', cancelText = 'Cancel·lar', onConfirm }) {
     const overlay = document.getElementById('modal-overlay');
     document.getElementById('modal-icon').textContent = icon;
     document.getElementById('modal-title').textContent = title;
-    document.getElementById('modal-text').textContent = text;
+
+    const textEl = document.getElementById('modal-text');
+    if (html) {
+        textEl.innerHTML = html;
+    } else {
+        textEl.textContent = text || '';
+    }
 
     const inputEl = document.getElementById('modal-input');
     inputEl.value = '';
@@ -108,10 +123,9 @@ function showModal({ icon = '💡', title, text, showInput = false, placeholder 
 }
 
 // ==========================================
-// INICIALITZACIÓ I RATXA DIÀRIA
+// INICIALITZACIÓ I NAVEGACIÓ ACTIVA (BLAU)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    checkUrlReferral();
     renderTopicNodes();
     updateStatsUI();
     initFirebaseListeners();
@@ -120,11 +134,22 @@ document.addEventListener('DOMContentLoaded', () => {
     initKeyboardShortcuts();
 });
 
+function setActiveNav(buttonId) {
+    document.querySelectorAll('.duo-nav-item').forEach(b => b.classList.remove('active'));
+    const target = document.getElementById(buttonId);
+    if (target) target.classList.add('active');
+}
+
 function isUserPro() {
     if (currentUser?.email === CEO_EMAIL) return true;
     if (userStats.unlockedExams === true) return true;
     if (typeof userStats.unlockedExams === 'number' && userStats.unlockedExams >= 3) return true;
     return false;
+}
+
+function getInvitesCount(unlockedVal) {
+    if (typeof unlockedVal === 'number') return unlockedVal >= 900 ? 0 : unlockedVal;
+    return 0;
 }
 
 function getTodayStr() {
@@ -154,6 +179,7 @@ function recordDailyStudy() {
 function renderTopicNodes() {
     ['A', 'B', 'C'].forEach(ambit => {
         const container = document.getElementById(`nodes-${ambit}`);
+        if (!container) return;
         container.innerHTML = '';
         TOPICS[ambit].forEach(code => {
             const score = userStats.topicScores?.[code];
@@ -196,7 +222,7 @@ function updateStatsUI() {
         proBadge.classList.add('is-pro');
         proSideBtn.classList.add('hidden');
     } else {
-        const count = typeof userStats.unlockedExams === 'number' ? userStats.unlockedExams : 0;
+        const count = getInvitesCount(userStats.unlockedExams);
         proBadge.textContent = `GRATIS (${count}/3 amics)`;
         proBadge.classList.remove('is-pro');
         proSideBtn.classList.remove('hidden');
@@ -208,7 +234,7 @@ async function saveStats() {
     updateStatsUI();
     renderTopicNodes();
 
-    if (currentUser) {
+    if (currentUser && !userStats.banned) {
         try {
             await setDoc(doc(db, "users", currentUser.uid), {
                 email: currentUser.email,
@@ -229,7 +255,7 @@ async function saveStats() {
 }
 
 // ==========================================
-// AUTENTICACIÓ FIREBASE I PERFIL CEO
+// AUTENTICACIÓ, BLOQUEIG BAN I PERFIL CEO
 // ==========================================
 function initFirebaseListeners() {
     onAuthStateChanged(auth, async (user) => {
@@ -253,6 +279,17 @@ function initFirebaseListeners() {
             const snap = await getDoc(doc(db, "users", user.uid));
             if (snap.exists()) {
                 const data = snap.data();
+
+                // Comprovació de BANEIG
+                if (data.banned === true && user.email !== CEO_EMAIL) {
+                    userStats.banned = true;
+                    document.getElementById('ban-screen').classList.remove('hidden');
+                    return;
+                } else {
+                    userStats.banned = false;
+                    document.getElementById('ban-screen').classList.add('hidden');
+                }
+
                 userStats.xp = Math.max(userStats.xp, data.xp || 0);
                 userStats.dailyStreak = Math.max(userStats.dailyStreak, data.dailyStreak || 0);
                 userStats.lastStudyDate = data.lastStudyDate || userStats.lastStudyDate;
@@ -266,6 +303,7 @@ function initFirebaseListeners() {
                 await saveStats();
             }
         } else {
+            document.getElementById('ban-screen').classList.add('hidden');
             authBtn.textContent = "👤 ENTRAR AMB GOOGLE";
             userTag.textContent = "Convidat";
             refInput.value = "Inicia sessió per tenir codi";
@@ -275,12 +313,18 @@ function initFirebaseListeners() {
     });
 }
 
+async function forceSignOut() {
+    await signOut(auth);
+    document.getElementById('ban-screen').classList.add('hidden');
+    switchTab('learn');
+}
+
 async function handleAuthClick() {
     if (currentUser) {
         showModal({
             icon: '👋',
             title: 'Tancar sessió?',
-            text: 'El teu progrés està guardat al núvol.',
+            text: 'El teu progrés està sincronitzat al núvol.',
             confirmText: 'Sortir',
             onConfirm: async () => {
                 await signOut(auth);
@@ -292,7 +336,7 @@ async function handleAuthClick() {
         try {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
-            showToast('Benvingut a Oppostest!', 'success');
+            showToast('Sessió iniciada!', 'success');
         } catch (e) {
             showToast('No s\'ha pogut iniciar sessió', 'error');
         }
@@ -302,20 +346,12 @@ async function handleAuthClick() {
 // ==========================================
 // SISTEMA DE REFERITS I DESBLOQUEIG PRO
 // ==========================================
-function checkUrlReferral() {
-    const params = new URLSearchParams(window.location.search);
-    const refUid = params.get('ref');
-    if (refUid) {
-        localStorage.setItem('pending_ref_uid', refUid);
-    }
-}
-
 function openProModal() {
     if (isUserPro()) {
         showModal({
             icon: '💎',
-            title: 'Ja tens Oppostest PRO Actiu!',
-            text: 'Tens accés il·limitat a tots els Simulacres Oficials i al Top Fallades de Catalunya.',
+            title: 'Tens Oppostest PRO Actiu!',
+            text: 'Gaudeix d\'accés il·limitat a tots els Simulacres Oficials (30 preguntes, 35 minuts) i al Top Fallades de Catalunya.',
             cancelText: null,
             confirmText: 'Genial!'
         });
@@ -335,7 +371,6 @@ function copyReferralLink() {
         showToast('Inicia sessió amb Google primer per obtenir el teu codi!', 'error');
         return;
     }
-    const url = `${window.location.origin}${window.location.pathname}?ref=${currentUser.uid}`;
     navigator.clipboard.writeText(currentUser.uid);
     showToast(`Codi (${currentUser.uid}) copiat al porta-retalls!`, 'success');
 }
@@ -363,34 +398,50 @@ async function redeemFriendCode() {
             return;
         }
         const friendData = snap.data();
-        const currentCount = typeof friendData.unlockedExams === 'number' ? friendData.unlockedExams : 0;
-        const newStatus = (currentCount + 1) >= 3 ? true : (currentCount + 1);
+        const currentCount = typeof friendData.unlockedExams === 'number' ? friendData.unlockedExams : (friendData.unlockedExams === true ? 3 : 0);
+        const newCount = currentCount + 1;
 
-        // Actualitza NOMÉS 'unlockedExams' per complir la teva regla exacta de Firestore!
-        await updateDoc(friendRef, { unlockedExams: newStatus });
+        // Guardem el número exacte a 'unlockedExams' perquè compleix la regla Firestore i permet al CEO veure quants amics ha convidat!
+        await updateDoc(friendRef, { unlockedExams: newCount });
 
         userStats.redeemedFriend = true;
         userStats.xp += 50;
         await saveStats();
-        showToast('🎉 Codi validat! El teu amic ha sumat 1 punt PRO i tu guanyes +50 XP!', 'success');
+        showToast('🎉 Codi validat! El teu amic suma +1 invitació i tu guanyes +50 XP!', 'success');
     } catch (e) {
-        showToast('Error validant el codi. Revisa la connexió.', 'error');
+        showToast('Error validant el codi.', 'error');
     }
 }
 
 // ==========================================
-// CÀRREGA BLINDADA DE PREGUNTES (FIRESTORE + FALLBACK JSON)
+// CÀRREGA INTEL·LIGENT DE PREGUNTES (CACHÉ + FIRESTORE + JSON)
 // ==========================================
-async function fetchQuestionsFromCodes(codes) {
+async function fetchQuestionsFromCodes(codes, forceRefresh = false) {
     let allQuestions = [];
     for (const code of codes) {
-        if (questionCache[code]) {
+        if (!forceRefresh && questionCache[code] && questionCache[code].length > 0) {
             allQuestions.push(...questionCache[code]);
             continue;
         }
 
+        // Mirar si està a localStorage per estalviar lectures de Firestore
+        const localBankKey = `oppostest_bank_${code}`;
+        if (!forceRefresh) {
+            const cachedLocal = localStorage.getItem(localBankKey);
+            if (cachedLocal) {
+                try {
+                    const parsed = JSON.parse(cachedLocal);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        questionCache[code] = parsed;
+                        allQuestions.push(...parsed);
+                        continue;
+                    }
+                } catch (e) {}
+            }
+        }
+
         let loaded = [];
-        // 1. Intenta carregar el paquet blindat de Firestore (/mossos_custom_questions/bank_a1)
+        // 1. Carregar des de Firestore (/mossos_custom_questions/bank_a1)
         try {
             const bankSnap = await getDoc(doc(db, "mossos_custom_questions", `bank_${code}`));
             if (bankSnap.exists() && Array.isArray(bankSnap.data().questions)) {
@@ -398,7 +449,7 @@ async function fetchQuestionsFromCodes(codes) {
             }
         } catch (e) {}
 
-        // 2. Si encara no s'ha migrat, llegeix el JSON local
+        // 2. Fallback a l'arxiu JSON local si no existeix a Firestore
         if (loaded.length === 0) {
             try {
                 const res = await fetch(`preguntas-${code}.json`);
@@ -406,39 +457,18 @@ async function fetchQuestionsFromCodes(codes) {
             } catch (e) {}
         }
 
-        questionCache[code] = loaded;
+        if (loaded.length > 0) {
+            questionCache[code] = loaded;
+            try { localStorage.setItem(localBankKey, JSON.stringify(loaded)); } catch (e) {}
+        }
         allQuestions.push(...loaded);
     }
     return allQuestions;
 }
 
-// MIGRADOR CEO: Puja els 20 JSON a Firestore amb 1 sol clic
-async function ceoMigrateAllJson() {
-    if (currentUser?.email !== CEO_EMAIL) return;
-    showModal({
-        icon: '🚀',
-        title: 'Migrar els 20 JSON a Firestore?',
-        text: 'Es llegiran preguntas-a1.json fins a c5.json i es desaran a /mossos_custom_questions/bank_a1...c5.',
-        confirmText: 'Iniciar Migració',
-        onConfirm: async () => {
-            let count = 0;
-            for (const code of ALL_FILES) {
-                try {
-                    const res = await fetch(`preguntas-${code}.json`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        await setDoc(doc(db, "mossos_custom_questions", `bank_${code}`), {
-                            topic: code,
-                            questions: data,
-                            updatedAt: Date.now()
-                        });
-                        count++;
-                    }
-                } catch (e) {}
-            }
-            showToast(`✅ ${count}/20 temes migrats a Firestore amb èxit!`, 'success');
-        }
-    });
+function clearLocalBankCache(code) {
+    delete questionCache[code];
+    localStorage.removeItem(`oppostest_bank_${code}`);
 }
 
 function shuffle(arr) {
@@ -451,7 +481,7 @@ function shuffle(arr) {
 }
 
 // ==========================================
-// INICIADORS DE MODES (AMB EMBUDO FREEMIUM)
+// SECCIONS SIMULACRE I ERRORS (BOTONS BLAUS ACTIUS)
 // ==========================================
 function checkProAccessOrTrial(callback) {
     if (isUserPro()) {
@@ -462,8 +492,8 @@ function checkProAccessOrTrial(callback) {
         showModal({
             icon: '🎁',
             title: 'Prova Gratuïta de Mode PRO',
-            text: 'Aquest és un mode exclusiu PRO. Et regalem 1 partida de prova gratuïta!',
-            confirmText: 'Jugar Prova Gratis',
+            text: 'Aquest és un mode exclusiu PRO. Et regalem 1 examen oficial de prova gratuït!',
+            confirmText: 'Començar Prova Gratis',
             onConfirm: () => {
                 userStats.freeProTrialsUsed = 1;
                 saveStats();
@@ -475,38 +505,60 @@ function checkProAccessOrTrial(callback) {
     }
 }
 
+function openSimulacreSection() {
+    setActiveNav('tab-simulacre');
+    checkProAccessOrTrial(async () => {
+        const q = await fetchQuestionsFromCodes(ALL_FILES);
+        if (!q.length) return showToast('No s\'han pogut carregar les preguntes.', 'error');
+        initQuiz('simulacre', '⏱️ SIMULACRE OFICIAL (30 preg · 35 min)', shuffle(q).slice(0, EXAM_QUESTIONS_COUNT), EXAM_DURATION_SECONDS, null, 'tab-simulacre');
+    });
+}
+
+function openErrorsSection() {
+    clearInterval(quizState.timerInterval);
+    setActiveNav('tab-errors');
+    hideAllViews();
+    document.getElementById('view-errors-hub').classList.remove('hidden');
+
+    const count = (userStats.failedQuestions || []).length;
+    const titleEl = document.getElementById('errors-hub-title');
+    const descEl = document.getElementById('errors-hub-desc');
+    const btnEl = document.getElementById('btn-start-errors-now');
+
+    if (count === 0) {
+        titleEl.textContent = '🎉 Tens 0 Errors Pendents!';
+        descEl.textContent = 'Tens tot el temari net! Continua fent tests per temes o simulacres; qualsevol pregunta que fallis es guardarà aquí automàticament.';
+        btnEl.textContent = 'TORNAR A ENTRENAR';
+        btnEl.onclick = () => switchTab('learn');
+    } else {
+        titleEl.textContent = `🧠 Tens ${count} preguntes pendents de repàs`;
+        descEl.textContent = 'Entrena exclusivament les preguntes que has fallat. Cada vegada que n\'encertis una, s\'eliminarà d\'aquesta llista.';
+        btnEl.textContent = `REPASSAR ${count} ERRORS ARA →`;
+        btnEl.onclick = () => launchErrorsQuiz();
+    }
+}
+
+function launchErrorsQuiz() {
+    if (!userStats.failedQuestions.length) return;
+    initQuiz('errors', '🧠 REPÀS D\'ERRORS', shuffle(userStats.failedQuestions), 0, null, 'tab-errors');
+}
+
 async function startTopic(code) {
     const q = await fetchQuestionsFromCodes([code]);
-    if (!q.length) return showToast(`No s'han trobat preguntes de ${code.toUpperCase()}`, 'error');
-    initQuiz('study', `TEMA ${code.toUpperCase()}`, shuffle(q).slice(0, 20), 0, code);
+    if (!q.length) return showToast(`No hi ha preguntes disponibles al Tema ${code.toUpperCase()}`, 'error');
+    initQuiz('study', `TEMA ${code.toUpperCase()}`, shuffle(q).slice(0, 20), 0, code, 'tab-learn');
 }
 
 async function startAmbit(letter) {
     const q = await fetchQuestionsFromCodes(TOPICS[letter]);
     if (!q.length) return;
-    initQuiz('study', `ÀMBIT ${letter}`, shuffle(q).slice(0, 25));
-}
-
-function startSimulacre() {
-    checkProAccessOrTrial(async () => {
-        const q = await fetchQuestionsFromCodes(ALL_FILES);
-        if (!q.length) return;
-        initQuiz('simulacre', '⏱️ SIMULACRE OFICIAL', shuffle(q).slice(0, 35), 35 * 60);
-    });
+    initQuiz('study', `ÀMBIT ${letter}`, shuffle(q).slice(0, 25), 0, null, 'tab-learn');
 }
 
 async function startSurvival() {
     const q = await fetchQuestionsFromCodes(ALL_FILES);
     if (!q.length) return;
-    initQuiz('survival', '🔥 SUPERVIVÈNCIA', shuffle(q));
-}
-
-function startErrorsMode() {
-    if (!userStats.failedQuestions.length) {
-        showToast('No tens cap pregunta pendent de repàs! 🎉', 'success');
-        return;
-    }
-    initQuiz('errors', '🧠 REPÀS D\'ERRORS', shuffle(userStats.failedQuestions));
+    initQuiz('survival', '🔥 MODE SUPERVIVÈNCIA', shuffle(q), 0, null, 'tab-learn');
 }
 
 function startCommunityFailures() {
@@ -514,20 +566,22 @@ function startCommunityFailures() {
         try {
             const snap = await getDoc(doc(db, "metrics", "top_failed"));
             if (snap.exists() && Array.isArray(snap.data().questions) && snap.data().questions.length >= 5) {
-                initQuiz('study', '☠️ TOP FALLADES CATALUNYA', shuffle(snap.data().questions).slice(0, 25));
+                initQuiz('study', '☠️ TOP FALLADES CATALUNYA', shuffle(snap.data().questions).slice(0, 25), 0, null, 'tab-learn');
                 return;
             }
         } catch (e) {}
         const q = await fetchQuestionsFromCodes(ALL_FILES);
-        initQuiz('study', '☠️ TOP FALLADES CATALUNYA', shuffle(q).slice(0, 25));
+        initQuiz('study', '☠️ TOP FALLADES CATALUNYA', shuffle(q).slice(0, 25), 0, null, 'tab-learn');
     });
 }
 
 // ==========================================
-// MOTOR DEL TEST I DRECERES DE TECLAT
+// MOTOR DEL TEST (30 PREGUNTES / 35 MINUTS EN SIMULACRE)
 // ==========================================
-function initQuiz(mode, title, questions, timerSeconds = 0, topicCode = null) {
+function initQuiz(mode, title, questions, timerSeconds = 0, topicCode = null, navId = 'tab-learn') {
     clearInterval(quizState.timerInterval);
+    setActiveNav(navId);
+
     quizState = {
         mode, topicCode, title, questions,
         currentIndex: 0, correct: 0, wrong: 0, blank: 0, streak: 0,
@@ -556,7 +610,7 @@ function startTimer() {
         updateTimerText();
         if (quizState.secondsLeft <= 0) {
             clearInterval(quizState.timerInterval);
-            showToast('⏰ Temps esgotat!', 'error');
+            showToast('⏰ Temps de 35 minuts esgotat!', 'error');
             finishQuiz();
         }
     }, 1000);
@@ -687,7 +741,6 @@ function finishQuiz() {
     const net = Math.max(0, quizState.correct - (quizState.wrong / 3));
     const gradeNum = total > 0 ? (net / total) * 10 : 0;
 
-    // Guardar nota al Semàfor si és un tema específic
     if (quizState.topicCode) {
         userStats.topicScores = userStats.topicScores || {};
         userStats.topicScores[quizState.topicCode] = gradeNum;
@@ -775,11 +828,13 @@ async function loadRanking() {
         let pos = 1;
         snap.forEach(d => {
             const u = d.data();
+            if (u.banned) return;
             const row = document.createElement('div');
             row.className = 'rank-row';
             const medal = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : `#${pos}`;
+            const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
             row.innerHTML = `
-                <span>${medal} ${u.displayName || 'Opositor'} ${u.unlockedExams ? '💎' : ''}</span>
+                <span>${medal} ${u.displayName || 'Opositor'} ${isPro ? '💎' : ''}</span>
                 <span>🔥 ${u.dailyStreak || 0}d · ⚡ ${u.xp || 0} XP</span>
             `;
             list.appendChild(row);
@@ -807,11 +862,382 @@ async function loadLiveEventBanner() {
 async function startLiveEvent() {
     const q = await fetchQuestionsFromCodes(ALL_FILES);
     if (!q.length) return;
-    initQuiz('simulacre', '🔴 ESDEVENIMENT OFICIAL EN VIU', shuffle(q).slice(0, 35), 35 * 60);
+    initQuiz('simulacre', '🔴 ESDEVENIMENT OFICIAL EN VIU', shuffle(q).slice(0, EXAM_QUESTIONS_COUNT), EXAM_DURATION_SECONDS, null, 'tab-simulacre');
 }
 
 // ==========================================
-// FUNCIONS EXCLUSIVES PANEL CEO
+// PANEL CEO: GESTOR D'ARXIUS I PREGUNTES EN FIRESTORE
+// ==========================================
+async function ceoLoadBanksStatus() {
+    if (currentUser?.email !== CEO_EMAIL) return;
+    const grid = document.getElementById('ceo-banks-grid');
+    grid.innerHTML = '<p class="muted-sm">Comprovant els 20 arxius a Firestore...</p>';
+
+    try {
+        const snap = await getDocs(collection(db, "mossos_custom_questions"));
+        const firestoreMap = {};
+        snap.forEach(d => {
+            if (d.id.startsWith('bank_')) {
+                const code = d.id.replace('bank_', '');
+                firestoreMap[code] = d.data();
+            }
+        });
+
+        grid.innerHTML = '';
+        ALL_FILES.forEach(code => {
+            const bankDoc = firestoreMap[code];
+            const isOnline = bankDoc && Array.isArray(bankDoc.questions);
+            const qCount = isOnline ? bankDoc.questions.length : 0;
+
+            const card = document.createElement('div');
+            card.className = `bank-card ${isOnline ? 'online' : ''}`;
+            card.innerHTML = `
+                <div class="bank-head">
+                    <strong>Tema ${code.toUpperCase()}</strong>
+                    <span class="bank-status">${isOnline ? `☁️ ${qCount} preg.` : '📁 Sense pujar'}</span>
+                </div>
+                <div class="bank-actions">
+                    <button class="btn-3d btn-blue btn-sm" onclick="triggerUploadJson('${code}')">📤 Pujar JSON</button>
+                    <button class="btn-3d btn-white btn-sm" onclick="openTopicManager('${code}')">👁️ Preguntes</button>
+                    <button class="btn-3d btn-gray btn-sm" onclick="ceoDownloadBackup('${code}')">📥 Còpia</button>
+                    <button class="btn-3d btn-red btn-sm" onclick="ceoDeleteBank('${code}')">🗑️ Eliminar</button>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    } catch (e) {
+        grid.innerHTML = '<p class="muted-sm">Error llegint la col·lecció de Firestore.</p>';
+    }
+}
+
+function triggerUploadJson(code) {
+    currentUploadTargetCode = code;
+    const uploader = document.getElementById('ceo-file-uploader');
+    uploader.value = '';
+    uploader.click();
+}
+
+async function handleJsonFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file || !currentUploadTargetCode) return;
+
+    const code = currentUploadTargetCode;
+    try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+
+        if (!Array.isArray(parsed) || parsed.length === 0 || !parsed[0].question || !parsed[0].options) {
+            showToast('El fitxer JSON no té el format correcte de preguntes.', 'error');
+            return;
+        }
+
+        await setDoc(doc(db, "mossos_custom_questions", `bank_${code}`), {
+            topic: code,
+            questions: parsed,
+            updatedAt: Date.now()
+        });
+
+        clearLocalBankCache(code);
+        showToast(`✅ Tema ${code.toUpperCase()} actualitzat amb ${parsed.length} preguntes!`, 'success');
+        ceoLoadBanksStatus();
+    } catch (e) {
+        showToast('Error llegint o pujant el fitxer JSON.', 'error');
+    }
+}
+
+function ceoDeleteBank(code) {
+    showModal({
+        icon: '🗑️',
+        title: `Eliminar Tema ${code.toUpperCase()} de Firestore?`,
+        text: `S'esborrarà el document bank_${code} del núvol. Podràs tornar a pujar un JSON nou quan vulguis.`,
+        confirmText: 'Sí, Eliminar',
+        onConfirm: async () => {
+            await deleteDoc(doc(db, "mossos_custom_questions", `bank_${code}`));
+            clearLocalBankCache(code);
+            showToast(`Tema ${code.toUpperCase()} eliminat de Firestore`, 'info');
+            ceoLoadBanksStatus();
+        }
+    });
+}
+
+async function ceoDownloadBackup(code) {
+    const questions = await fetchQuestionsFromCodes([code], true);
+    if (!questions.length) {
+        showToast(`No hi ha preguntes al Tema ${code.toUpperCase()} per descarregar`, 'error');
+        return;
+    }
+    const blob = new Blob([JSON.stringify(questions, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `preguntas-${code}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`Còpia preguntas-${code}.json descarregada!`, 'success');
+}
+
+// Editor Visual de les preguntes d'un Tema concret
+async function openTopicManager(code) {
+    currentManagedTopicCode = code;
+    document.getElementById('ceo-topic-modal-title').textContent = `Gestor de Preguntes · Tema ${code.toUpperCase()}`;
+    document.getElementById('ceo-search-q').value = '';
+    document.getElementById('ceo-topic-modal').classList.remove('hidden');
+
+    const listEl = document.getElementById('ceo-topic-questions-list');
+    listEl.innerHTML = '<p class="muted-sm">Carregant preguntes...</p>';
+
+    currentManagedQuestions = await fetchQuestionsFromCodes([code], true);
+    renderManagedTopicQuestions(currentManagedQuestions);
+}
+
+function closeTopicManager() {
+    document.getElementById('ceo-topic-modal').classList.add('hidden');
+}
+
+function renderManagedTopicQuestions(questionsArray) {
+    const listEl = document.getElementById('ceo-topic-questions-list');
+    listEl.innerHTML = '';
+
+    if (!questionsArray.length) {
+        listEl.innerHTML = '<p class="muted-sm">Aquest tema no té preguntes actualment. Pots pujar un JSON o afegir-ne una manualment.</p>';
+        return;
+    }
+
+    questionsArray.forEach((q, idx) => {
+        const item = document.createElement('div');
+        item.className = 'q-edit-item';
+        item.innerHTML = `
+            <div>
+                <strong>${idx + 1}. ${q.question}</strong>
+                <div class="muted-sm mt-2">✅ Correcta: <b>${q.correctAnswer}</b></div>
+            </div>
+            <button class="btn-3d btn-red btn-sm" onclick="deleteSingleQuestionFromTopic(${idx})">🗑️</button>
+        `;
+        listEl.appendChild(item);
+    });
+}
+
+function filterTopicQuestions() {
+    const term = document.getElementById('ceo-search-q').value.toLowerCase().trim();
+    if (!term) {
+        renderManagedTopicQuestions(currentManagedQuestions);
+        return;
+    }
+    const filtered = currentManagedQuestions.filter(q => q.question.toLowerCase().includes(term));
+    renderManagedTopicQuestions(filtered);
+}
+
+async function deleteSingleQuestionFromTopic(indexInArray) {
+    const code = currentManagedTopicCode;
+    currentManagedQuestions.splice(indexInArray, 1);
+    await setDoc(doc(db, "mossos_custom_questions", `bank_${code}`), {
+        topic: code,
+        questions: currentManagedQuestions,
+        updatedAt: Date.now()
+    });
+    clearLocalBankCache(code);
+    renderManagedTopicQuestions(currentManagedQuestions);
+    ceoLoadBanksStatus();
+    showToast('Pregunta eliminada del tema!', 'success');
+}
+
+function openAddQuestionToCurrentTopic() {
+    const code = currentManagedTopicCode;
+    closeTopicManager();
+    showModal({
+        icon: '➕',
+        title: `Afegir Pregunta al Tema ${code.toUpperCase()}`,
+        html: `
+            <input id="new-q-title" class="duo-input" placeholder="Enunciat de la pregunta">
+            <input id="new-q-ok" class="duo-input" placeholder="Opció Correcta">
+            <input id="new-q-ko1" class="duo-input" placeholder="Opció Incorrecta 1">
+            <input id="new-q-ko2" class="duo-input" placeholder="Opció Incorrecta 2">
+            <input id="new-q-ko3" class="duo-input" placeholder="Opció Incorrecta 3">
+            <input id="new-q-exp" class="duo-input" placeholder="Explicació oficial">
+        `,
+        confirmText: 'Guardar al Tema',
+        onConfirm: async () => {
+            const question = document.getElementById('new-q-title').value.trim();
+            const o1 = document.getElementById('new-q-ok').value.trim();
+            const o2 = document.getElementById('new-q-ko1').value.trim();
+            const o3 = document.getElementById('new-q-ko2').value.trim();
+            const o4 = document.getElementById('new-q-ko3').value.trim();
+            const explanation = document.getElementById('new-q-exp').value.trim();
+
+            if (!question || !o1 || !o2) {
+                showToast('Falten dades de la pregunta', 'error');
+                return;
+            }
+            currentManagedQuestions.unshift({
+                question,
+                options: shuffle([o1, o2, o3, o4].filter(Boolean)),
+                correctAnswer: o1,
+                explanation
+            });
+            await setDoc(doc(db, "mossos_custom_questions", `bank_${code}`), {
+                topic: code,
+                questions: currentManagedQuestions,
+                updatedAt: Date.now()
+            });
+            clearLocalBankCache(code);
+            ceoLoadBanksStatus();
+            showToast(`Pregunta afegida al Tema ${code.toUpperCase()}!`, 'success');
+        }
+    });
+}
+
+async function ceoMigrateAllJson() {
+    if (currentUser?.email !== CEO_EMAIL) return;
+    showModal({
+        icon: '🚀',
+        title: 'Sincronitzar els 20 JSON locals a Firestore?',
+        text: 'Es llegiran preguntas-a1.json fins a c5.json de la carpeta del projecte i es pujaran al núvol.',
+        confirmText: 'Sincronitzar Ara',
+        onConfirm: async () => {
+            let count = 0;
+            for (const code of ALL_FILES) {
+                try {
+                    const res = await fetch(`preguntas-${code}.json`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        await setDoc(doc(db, "mossos_custom_questions", `bank_${code}`), {
+                            topic: code,
+                            questions: data,
+                            updatedAt: Date.now()
+                        });
+                        clearLocalBankCache(code);
+                        count++;
+                    }
+                } catch (e) {}
+            }
+            showToast(`✅ ${count}/20 temes pujats a Firestore!`, 'success');
+            ceoLoadBanksStatus();
+        }
+    });
+}
+
+// ==========================================
+// PANEL CEO: CRM D'USUARIS, DETALLS, PRO I BANEIG
+// ==========================================
+async function ceoLoadUsers() {
+    if (currentUser?.email !== CEO_EMAIL) return;
+    const container = document.getElementById('ceo-users-list');
+    container.innerHTML = '<p class="muted-sm">Carregant usuaris...</p>';
+    const snap = await getDocs(collection(db, "users"));
+    allUsersCache = [];
+    snap.forEach(d => allUsersCache.push({ uid: d.id, ...d.data() }));
+    renderCeoUsersList(allUsersCache);
+}
+
+function ceoFilterUsers() {
+    const term = document.getElementById('ceo-user-search').value.toLowerCase().trim();
+    if (!term) {
+        renderCeoUsersList(allUsersCache);
+        return;
+    }
+    const filtered = allUsersCache.filter(u =>
+        (u.email || '').toLowerCase().includes(term) ||
+        (u.displayName || '').toLowerCase().includes(term) ||
+        u.uid.toLowerCase().includes(term)
+    );
+    renderCeoUsersList(filtered);
+}
+
+function renderCeoUsersList(usersArray) {
+    const container = document.getElementById('ceo-users-list');
+    container.innerHTML = '';
+
+    usersArray.forEach(u => {
+        const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
+        const invites = getInvitesCount(u.unlockedExams);
+        const isBanned = u.banned === true;
+
+        const div = document.createElement('div');
+        div.className = 'admin-row';
+        div.innerHTML = `
+            <div>
+                <strong>${u.displayName || 'Sense nom'}</strong> <small class="muted-sm">(${u.email || u.uid})</small><br>
+                <small>⚡ ${u.xp || 0} XP · 🔥 ${u.dailyStreak || 0}d · 👥 Convidats: <b>${invites}</b> · ${isPro ? '💎 PRO' : 'Gratis'} ${isBanned ? '· 🚫 BANEJAT' : ''}</small>
+            </div>
+            <div class="row-btns">
+                <button class="btn-3d btn-blue btn-sm" onclick="ceoInspectUser('${u.uid}')">🔍 Mostrar Detalls</button>
+                <button class="btn-3d btn-gold btn-sm" onclick="ceoTogglePro('${u.uid}', ${!isPro})">${isPro ? 'Treure PRO' : 'Donar PRO'}</button>
+                <button class="btn-3d ${isBanned ? 'btn-green' : 'btn-red'} btn-sm" onclick="ceoToggleBan('${u.uid}', ${!isBanned})">${isBanned ? 'Desbloquejar' : '🚫 Banejar'}</button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function ceoInspectUser(uid) {
+    const u = allUsersCache.find(item => item.uid === uid);
+    if (!u) return;
+
+    const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
+    const invites = getInvitesCount(u.unlockedExams);
+    const isBanned = u.banned === true;
+    const scoresObj = u.topicScores || {};
+    const completedTopics = Object.keys(scoresObj);
+    const avgScore = completedTopics.length > 0
+        ? (completedTopics.reduce((acc, k) => acc + scoresObj[k], 0) / completedTopics.length).toFixed(2)
+        : 'Cap test';
+
+    const lastDate = u.updatedAt ? new Date(u.updatedAt).toLocaleString('ca-ES') : 'Desconegut';
+
+    showModal({
+        icon: isBanned ? '🚫' : (isPro ? '💎' : '👤'),
+        title: u.displayName || 'Perfil d\'Usuari',
+        html: `
+            <div class="muted-sm mb-2">${u.email || 'Sense correu'}<br><code>UID: ${u.uid}</code></div>
+            <div class="user-detail-grid">
+                <div class="u-stat-box"><small>Estat del Compte</small><strong>${isBanned ? '🚫 BANEJAT' : (isPro ? '💎 PRO ACTIU' : 'GRATIS')}</strong></div>
+                <div class="u-stat-box"><small>Persones Convidades</small><strong>👥 ${invites} amics</strong></div>
+                <div class="u-stat-box"><small>Experiència i Ratxa</small><strong>⚡ ${u.xp || 0} XP · 🔥 ${u.dailyStreak || 0} dies</strong></div>
+                <div class="u-stat-box"><small>Rècord Supervivència</small><strong>🔥 ${u.bestStreak || 0} seguides</strong></div>
+                <div class="u-stat-box"><small>Nota Mitjana (${completedTopics.length}/20 temes)</small><strong>📊 ${avgScore}</strong></div>
+                <div class="u-stat-box"><small>Errors Pendents</small><strong>❤️ ${(u.failedQuestions || []).length} preguntes</strong></div>
+            </div>
+            <small class="muted-sm">Última activitat: ${lastDate}</small>
+            <div class="row-btns mt-3" style="justify-content:center;">
+                <button class="btn-3d btn-gold btn-sm" onclick="ceoTogglePro('${u.uid}', ${!isPro}); document.getElementById('modal-overlay').classList.add('hidden');">${isPro ? 'Treure PRO' : 'Atorgar PRO'}</button>
+                <button class="btn-3d ${isBanned ? 'btn-green' : 'btn-red'} btn-sm" onclick="ceoToggleBan('${u.uid}', ${!isBanned}); document.getElementById('modal-overlay').classList.add('hidden');">${isBanned ? 'Treure Ban' : 'Banejar Compte'}</button>
+                <button class="btn-3d btn-gray btn-sm" onclick="ceoDeleteUserAccount('${u.uid}')">🗑️ Esborrar Usuari</button>
+            </div>
+        `,
+        cancelText: null,
+        confirmText: 'Tancar Fitxa'
+    });
+}
+
+async function ceoTogglePro(uid, givePro) {
+    // Si li donem PRO manualment posem 999 per distingir-ho dels amics convidats
+    await updateDoc(doc(db, "users", uid), { unlockedExams: givePro ? 999 : 0 });
+    showToast(givePro ? '💎 PRO atorgat a l\'usuari!' : 'PRO retirat de l\'usuari', 'success');
+    ceoLoadUsers();
+}
+
+async function ceoToggleBan(uid, banStatus) {
+    await updateDoc(doc(db, "users", uid), { banned: banStatus });
+    showToast(banStatus ? '🚫 Usuari banejat!' : '✅ Usuari desbloquejat!', banStatus ? 'error' : 'success');
+    ceoLoadUsers();
+}
+
+function ceoDeleteUserAccount(uid) {
+    showModal({
+        icon: '⚠️',
+        title: 'Esborrar perfil d\'usuari?',
+        text: 'Aquesta acció eliminarà totes les estadístiques d\'aquest usuari de Firestore.',
+        confirmText: 'Sí, Esborrar',
+        onConfirm: async () => {
+            await deleteDoc(doc(db, "users", uid));
+            showToast('Usuari eliminat de Firestore', 'info');
+            ceoLoadUsers();
+        }
+    });
+}
+
+// ==========================================
+// PANEL CEO: ALERTES, ESDEVENIMENTS I REPORTS
 // ==========================================
 async function loadGlobalAlert() {
     try {
@@ -838,7 +1264,7 @@ async function ceoClearAlert() {
 
 async function ceoSaveEvent() {
     const title = document.getElementById('ceo-ev-title').value.trim() || 'Simulacre General de Catalunya';
-    const desc = document.getElementById('ceo-ev-desc').value.trim() || '35 preguntes oficials · Temps real';
+    const desc = document.getElementById('ceo-ev-desc').value.trim() || '30 preguntes oficials · 35 minuts · Temps real';
     await setDoc(doc(db, "mossos_events", "active"), { active: true, title, desc });
     loadLiveEventBanner();
     showToast('🔴 Esdeveniment en Viu activat!', 'success');
@@ -850,29 +1276,15 @@ async function ceoClearEvent() {
     showToast('Esdeveniment desactivat');
 }
 
-async function ceoCreateQuestion() {
-    const question = document.getElementById('ceo-q-text').value.trim();
-    const o1 = document.getElementById('ceo-q-opt1').value.trim();
-    const o2 = document.getElementById('ceo-q-opt2').value.trim();
-    const o3 = document.getElementById('ceo-q-opt3').value.trim();
-    const o4 = document.getElementById('ceo-q-opt4').value.trim();
-    const explanation = document.getElementById('ceo-q-exp').value.trim();
-
-    if (!question || !o1 || !o2) return showToast('Omple l\'enunciat i les opcions!', 'error');
-    await addDoc(collection(db, "mossos_custom_questions"), {
-        question,
-        options: shuffle([o1, o2, o3, o4]),
-        correctAnswer: o1,
-        explanation
-    });
-    showToast('Pregunta guardada a Firestore!', 'success');
-}
-
 async function ceoLoadReports() {
     const container = document.getElementById('ceo-reports-list');
     container.innerHTML = 'Carregant...';
     const snap = await getDocs(collection(db, "reports"));
     container.innerHTML = '';
+    if (snap.empty) {
+        container.innerHTML = '<p class="muted-sm">No hi ha cap report pendent.</p>';
+        return;
+    }
     snap.forEach(d => {
         const r = d.data();
         const div = document.createElement('div');
@@ -891,57 +1303,34 @@ async function ceoDeleteReport(id) {
     ceoLoadReports();
 }
 
-async function ceoLoadUsers() {
-    const container = document.getElementById('ceo-users-list');
-    container.innerHTML = 'Carregant...';
-    const snap = await getDocs(collection(db, "users"));
-    container.innerHTML = '';
-    snap.forEach(d => {
-        const u = d.data();
-        const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
-        const div = document.createElement('div');
-        div.className = 'admin-row';
-        div.innerHTML = `
-            <span>${u.email || d.id} (⚡${u.xp || 0}) ${isPro ? '💎 PRO' : ''}</span>
-            <button class="btn-3d btn-gold btn-sm" onclick="ceoTogglePro('${d.id}', ${!isPro})">${isPro ? 'Treure PRO' : 'Donar PRO'}</button>
-        `;
-        container.appendChild(div);
-    });
-}
-
-async function ceoTogglePro(uid, status) {
-    await updateDoc(doc(db, "users", uid), { unlockedExams: status });
-    showToast('Estat PRO actualitzat!', 'success');
-    ceoLoadUsers();
-}
-
 // ==========================================
 // NAVEGACIÓ ENTRE VISTES
 // ==========================================
 function hideAllViews() {
-    ['view-learn', 'view-ranking', 'view-ceo', 'view-quiz', 'view-results'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
+    ['view-learn', 'view-errors-hub', 'view-ranking', 'view-ceo', 'view-quiz', 'view-results'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
     });
 }
 
 function switchTab(tab) {
     clearInterval(quizState.timerInterval);
     hideAllViews();
-    document.querySelectorAll('.duo-nav-item').forEach(b => b.classList.remove('active'));
 
     if (tab === 'learn') {
+        setActiveNav('tab-learn');
         document.getElementById('view-learn').classList.remove('hidden');
-        document.getElementById('tab-learn').classList.add('active');
         renderTopicNodes();
     } else if (tab === 'ranking') {
+        setActiveNav('tab-ranking');
         document.getElementById('view-ranking').classList.remove('hidden');
-        document.getElementById('tab-ranking').classList.add('active');
         loadRanking();
     } else if (tab === 'ceo' && currentUser?.email === CEO_EMAIL) {
+        setActiveNav('tab-ceo');
         document.getElementById('view-ceo').classList.remove('hidden');
-        document.getElementById('tab-ceo').classList.add('active');
-        ceoLoadReports();
+        ceoLoadBanksStatus();
         ceoLoadUsers();
+        ceoLoadReports();
     }
 }
 
@@ -958,9 +1347,14 @@ function confirmExitQuiz() {
 
 // Exposar funcions al DOM
 Object.assign(window, {
-    switchTab, startSimulacre, startSurvival, startErrorsMode, startCommunityFailures,
-    startAmbit, startTopic, startLiveEvent, skipQuestion, nextQuestion, confirmExitQuiz,
-    handleAuthClick, openProModal, copyReferralLink, redeemFriendCode, loadRanking,
-    reportCurrentQuestion, ceoMigrateAllJson, ceoSaveAlert, ceoClearAlert, ceoSaveEvent,
-    ceoClearEvent, ceoCreateQuestion, ceoLoadReports, ceoDeleteReport, ceoLoadUsers, ceoTogglePro
+    switchTab, openSimulacreSection, openErrorsSection, launchErrorsQuiz, startSurvival,
+    startCommunityFailures, startAmbit, startTopic, startLiveEvent, skipQuestion,
+    nextQuestion, confirmExitQuiz, handleAuthClick, forceSignOut, openProModal,
+    copyReferralLink, redeemFriendCode, loadRanking, reportCurrentQuestion,
+    ceoMigrateAllJson, ceoLoadBanksStatus, triggerUploadJson, handleJsonFileUpload,
+    ceoDeleteBank, ceoDownloadBackup, openTopicManager, closeTopicManager,
+    filterTopicQuestions, deleteSingleQuestionFromTopic, openAddQuestionToCurrentTopic,
+    ceoSaveAlert, ceoClearAlert, ceoSaveEvent, ceoClearEvent, ceoLoadReports,
+    ceoDeleteReport, ceoLoadUsers, ceoFilterUsers, ceoInspectUser, ceoTogglePro,
+    ceoToggleBan, ceoDeleteUserAccount
 });
