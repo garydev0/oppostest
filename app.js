@@ -67,6 +67,8 @@ let quizState = {
     blank: 0,
     streak: 0,
     userAnswers: [],
+    simulacreAnswers: [], // Guarda la resposta triada a cada pregunta [0..29]
+    simulacreDoubts: [],  // Guarda si la pregunta està marcada amb dubte [0..29]
     timerInterval: null,
     secondsLeft: 0
 };
@@ -155,7 +157,7 @@ function showModal({ icon = '💡', title, text, html = null, showInput = false,
 }
 
 // ==========================================
-// INICIALITZACIÓ RÀPIDA AMB PRE-CÀRREGA EN PARAL·LEL
+// INICIALITZACIÓ RÀPIDA DES DE FIRESTORE
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     updateSplashProgress(20, 'Preparant tauler i estadístiques...');
@@ -164,11 +166,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     initFirebaseListeners();
     initKeyboardShortcuts();
 
-    updateSplashProgress(55, 'Carregant els 20 temes oficials en memòria...');
-    // Pre-carreguem tots els temes en paral·lel perquè Simulacre sigui instantani!
+    updateSplashProgress(55, 'Sincronitzant els 20 temes des del núvol...');
     await fetchQuestionsFromCodes(ALL_FILES);
 
-    updateSplashProgress(85, 'Sincronitzant esdeveniments i alertes...');
+    updateSplashProgress(85, 'Comprovant esdeveniments i alertes...');
     await Promise.all([loadGlobalAlert(), loadLiveEventBanner()]);
 
     hideSplashLoader();
@@ -314,7 +315,6 @@ function renderProfileView() {
         btn.classList.toggle('selected', btn.textContent.trim() === (userStats.avatar || '👮‍♂️'));
     });
 
-    // Estadístiques de l'expedient
     const scoresObj = userStats.topicScores || {};
     const keys = Object.keys(scoresObj);
     const avg = keys.length > 0 ? (keys.reduce((a, k) => a + scoresObj[k], 0) / keys.length).toFixed(2) : '0.00';
@@ -357,11 +357,11 @@ async function saveUserProfileData() {
 }
 
 async function forceReloadQuestionBanks() {
-    showSplashLoader('Sincronitzant els 20 temes amb el núvol...');
+    showSplashLoader('Sincronitzant els 20 temes amb Firestore...');
     ALL_FILES.forEach(code => clearLocalBankCache(code));
     await fetchQuestionsFromCodes(ALL_FILES, true);
     hideSplashLoader();
-    showToast('✅ Temari actualitzat a l\'última versió!', 'success');
+    showToast('✅ Temari actualitzat des del núvol!', 'success');
 }
 
 // ==========================================
@@ -526,7 +526,7 @@ async function redeemFriendCode() {
 }
 
 // ==========================================
-// CÀRREGA EN PARAL·LEL ULTRA-RÀPIDA (ZERO BLOQUEJOS)
+// CÀRREGA EN PARAL·LEL 100% DES DE FIRESTORE
 // ==========================================
 async function loadSingleTopicCode(code, forceRefresh = false) {
     if (!forceRefresh && questionCache[code] && questionCache[code].length > 0) {
@@ -548,20 +548,12 @@ async function loadSingleTopicCode(code, forceRefresh = false) {
     }
 
     let loaded = [];
-    // 1. Intenta llegir el fitxer local primer si és ràpid, o Firestore si s'ha pujat
     try {
         const bankSnap = await getDoc(doc(db, "mossos_custom_questions", `bank_${code}`));
         if (bankSnap.exists() && Array.isArray(bankSnap.data().questions)) {
             loaded = bankSnap.data().questions;
         }
     } catch (e) {}
-
-    if (loaded.length === 0) {
-        try {
-            const res = await fetch(`preguntas-${code}.json`);
-            if (res.ok) loaded = await res.json();
-        } catch (e) {}
-    }
 
     if (loaded.length > 0) {
         questionCache[code] = loaded;
@@ -571,7 +563,6 @@ async function loadSingleTopicCode(code, forceRefresh = false) {
 }
 
 async function fetchQuestionsFromCodes(codes, forceRefresh = false) {
-    // Executa totes les descàrregues ALHORA en paral·lel (10x més ràpid)
     const results = await Promise.all(codes.map(code => loadSingleTopicCode(code, forceRefresh)));
     return results.flat();
 }
@@ -686,7 +677,7 @@ function startCommunityFailures() {
 }
 
 // ==========================================
-// MOTOR DEL TEST (30 PREGUNTES / 35 MINUTS)
+// MOTOR DEL TEST + NAVEGADOR D'EXAMEN (1 a 30)
 // ==========================================
 function initQuiz(mode, title, questions, timerSeconds = 0, topicCode = null, navId = 'tab-learn') {
     clearInterval(quizState.timerInterval);
@@ -695,7 +686,10 @@ function initQuiz(mode, title, questions, timerSeconds = 0, topicCode = null, na
     quizState = {
         mode, topicCode, title, questions,
         currentIndex: 0, correct: 0, wrong: 0, blank: 0, streak: 0,
-        userAnswers: [], timerInterval: null, secondsLeft: timerSeconds
+        userAnswers: [],
+        simulacreAnswers: new Array(questions.length).fill(null),
+        simulacreDoubts: new Array(questions.length).fill(false),
+        timerInterval: null, secondsLeft: timerSeconds
     };
 
     hideAllViews();
@@ -703,13 +697,75 @@ function initQuiz(mode, title, questions, timerSeconds = 0, topicCode = null, na
     document.getElementById('quiz-badge').textContent = title;
 
     const timerEl = document.getElementById('quiz-timer');
+    const simNavPanel = document.getElementById('simulacre-nav-panel');
+    const simControls = document.getElementById('simulacre-controls');
+    const studyControls = document.getElementById('study-controls');
+
     if (mode === 'simulacre') {
         timerEl.classList.remove('hidden');
+        simNavPanel.classList.remove('hidden');
+        simControls.classList.remove('hidden');
+        studyControls.classList.add('hidden');
         startTimer();
+        renderSimulacreGrid();
     } else {
         timerEl.classList.add('hidden');
+        simNavPanel.classList.add('hidden');
+        simControls.classList.add('hidden');
+        studyControls.classList.remove('hidden');
     }
 
+    renderQuestion();
+}
+
+function renderSimulacreGrid() {
+    if (quizState.mode !== 'simulacre') return;
+    const grid = document.getElementById('simulacre-nav-grid');
+    grid.innerHTML = '';
+
+    quizState.questions.forEach((_, idx) => {
+        const btn = document.createElement('button');
+        const isCurrent = idx === quizState.currentIndex;
+        const isAnswered = quizState.simulacreAnswers[idx] !== null;
+        const isDoubt = quizState.simulacreDoubts[idx];
+
+        let cls = 'sim-q-pill';
+        if (isDoubt) cls += ' doubt';
+        else if (isAnswered) cls += ' answered';
+        if (isCurrent) cls += ' current';
+
+        btn.className = cls;
+        btn.textContent = idx + 1;
+        btn.onclick = () => jumpToQuestion(idx);
+        grid.appendChild(btn);
+    });
+}
+
+function jumpToQuestion(index) {
+    if (index < 0 || index >= quizState.questions.length) return;
+    quizState.currentIndex = index;
+    renderQuestion();
+}
+
+function prevQuestion() {
+    if (quizState.currentIndex > 0) {
+        quizState.currentIndex--;
+        renderQuestion();
+    }
+}
+
+function toggleDoubtCurrent() {
+    if (quizState.mode !== 'simulacre') return;
+    const idx = quizState.currentIndex;
+    quizState.simulacreDoubts[idx] = !quizState.simulacreDoubts[idx];
+    renderSimulacreGrid();
+    renderQuestion();
+}
+
+function clearCurrentAnswer() {
+    if (quizState.mode !== 'simulacre') return;
+    quizState.simulacreAnswers[quizState.currentIndex] = null;
+    renderSimulacreGrid();
     renderQuestion();
 }
 
@@ -737,23 +793,37 @@ function renderQuestion() {
     const total = quizState.mode === 'survival' ? '∞' : quizState.questions.length;
     document.getElementById('quiz-counter').textContent = `${quizState.currentIndex + 1}/${total}`;
 
-    const pct = quizState.mode === 'survival' ? 100 : (quizState.currentIndex / quizState.questions.length) * 100;
+    let pct = 100;
+    if (quizState.mode === 'simulacre') {
+        const answeredCount = quizState.simulacreAnswers.filter(a => a !== null).length;
+        pct = (answeredCount / quizState.questions.length) * 100;
+    } else if (quizState.mode !== 'survival') {
+        pct = (quizState.currentIndex / quizState.questions.length) * 100;
+    }
     document.getElementById('quiz-progress-bar').style.width = `${pct}%`;
 
-    document.getElementById('question-text').textContent = q.question;
+    document.getElementById('question-text').textContent = `${quizState.currentIndex + 1}. ${q.question}`;
     document.getElementById('feedback-content').classList.add('hidden');
     document.getElementById('btn-next').classList.add('hidden');
 
-    const skipBtn = document.getElementById('btn-skip');
-    quizState.mode === 'simulacre' ? skipBtn.classList.remove('hidden') : skipBtn.classList.add('hidden');
+    if (quizState.mode === 'simulacre') {
+        document.getElementById('btn-prev-q').disabled = quizState.currentIndex === 0;
+        const doubtBtn = document.getElementById('btn-doubt-q');
+        doubtBtn.textContent = quizState.simulacreDoubts[quizState.currentIndex] ? '🟡 Amb Dubte' : '❓ Dubte';
+        renderSimulacreGrid();
+    }
 
     const container = document.getElementById('options-container');
     container.innerHTML = '';
     const letters = ['A', 'B', 'C', 'D'];
+    const currentSimSelection = quizState.simulacreAnswers[quizState.currentIndex];
 
     q.options.forEach((opt, i) => {
         const btn = document.createElement('button');
         btn.className = 'duo-opt';
+        if (quizState.mode === 'simulacre' && currentSimSelection === opt) {
+            btn.classList.add('selected-sim');
+        }
         btn.innerHTML = `<span class="opt-key">${letters[i]}</span> <span>${opt}</span>`;
         btn.onclick = () => selectAnswer(opt, btn);
         container.appendChild(btn);
@@ -762,8 +832,20 @@ function renderQuestion() {
 
 async function selectAnswer(selected, btn) {
     const q = quizState.questions[quizState.currentIndex];
-    const isCorrect = selected.trim() === q.correctAnswer.trim();
 
+    // EN SIMULACRE: Permet triar, canviar d'opció o desmarcar clicant la mateixa
+    if (quizState.mode === 'simulacre') {
+        if (quizState.simulacreAnswers[quizState.currentIndex] === selected) {
+            quizState.simulacreAnswers[quizState.currentIndex] = null; // Deixar en blanc
+        } else {
+            quizState.simulacreAnswers[quizState.currentIndex] = selected;
+        }
+        renderQuestion();
+        return;
+    }
+
+    // EN MODE ESTUDI / SUPERVIVÈNCIA / ERRORS: Correcció immediata
+    const isCorrect = selected.trim() === q.correctAnswer.trim();
     quizState.userAnswers.push({ question: q, selected, isCorrect });
 
     if (isCorrect) {
@@ -784,11 +866,6 @@ async function selectAnswer(selected, btn) {
         recordCommunityFailure(q);
     }
 
-    if (quizState.mode === 'simulacre') {
-        nextQuestion();
-        return;
-    }
-
     document.querySelectorAll('.duo-opt').forEach(b => {
         b.disabled = true;
         const txt = b.querySelector('span:last-child').textContent.trim();
@@ -796,7 +873,6 @@ async function selectAnswer(selected, btn) {
     });
     if (!isCorrect) btn.classList.add('wrong');
 
-    document.getElementById('btn-skip').classList.add('hidden');
     const fb = document.getElementById('feedback-content');
     fb.classList.remove('hidden');
     document.getElementById('feedback-title').textContent = isCorrect ? '✅ Resposta Correcta! (+10 XP)' : '❌ Resposta Incorrecta';
@@ -813,6 +889,27 @@ async function selectAnswer(selected, btn) {
     }
 }
 
+function confirmFinishSimulacre() {
+    const answered = quizState.simulacreAnswers.filter(a => a !== null).length;
+    const blanks = quizState.questions.length - answered;
+    const doubts = quizState.simulacreDoubts.filter(Boolean).length;
+
+    showModal({
+        icon: '📝',
+        title: 'Vols entregar i corregir l\'examen?',
+        html: `
+            <div class="user-detail-grid">
+                <div class="u-stat-box"><small>Contestades</small><strong>✅ ${answered}</strong></div>
+                <div class="u-stat-box"><small>En blanc</small><strong>⚪ ${blanks}</strong></div>
+            </div>
+            ${doubts > 0 ? `<p style="color:var(--gold); font-weight:800;">⚠️ Encara tens ${doubts} pregunta(es) marcada amb dubte.</p>` : ''}
+        `,
+        confirmText: 'Corregir Examen Ara',
+        cancelText: 'Seguir Revisant',
+        onConfirm: () => finishQuiz()
+    });
+}
+
 async function recordCommunityFailure(questionObj) {
     if (!currentUser) return;
     try {
@@ -827,14 +924,17 @@ async function recordCommunityFailure(questionObj) {
     } catch (e) {}
 }
 
-function skipQuestion() {
-    const q = quizState.questions[quizState.currentIndex];
-    quizState.blank++;
-    quizState.userAnswers.push({ question: q, selected: null, isCorrect: false });
-    nextQuestion();
-}
-
 function nextQuestion() {
+    if (quizState.mode === 'simulacre') {
+        if (quizState.currentIndex < quizState.questions.length - 1) {
+            quizState.currentIndex++;
+            renderQuestion();
+        } else {
+            confirmFinishSimulacre();
+        }
+        return;
+    }
+
     quizState.currentIndex++;
     if (quizState.currentIndex >= quizState.questions.length) {
         finishQuiz();
@@ -846,6 +946,35 @@ function nextQuestion() {
 function finishQuiz() {
     clearInterval(quizState.timerInterval);
     recordDailyStudy();
+
+    // Si era un Simulacre, calculem ara totes les respostes del full d'examen
+    if (quizState.mode === 'simulacre') {
+        quizState.correct = 0;
+        quizState.wrong = 0;
+        quizState.blank = 0;
+        quizState.userAnswers = [];
+
+        quizState.questions.forEach((q, idx) => {
+            const chosen = quizState.simulacreAnswers[idx];
+            if (chosen === null) {
+                quizState.blank++;
+                quizState.userAnswers.push({ question: q, selected: null, isCorrect: false });
+            } else {
+                const isOk = chosen.trim() === q.correctAnswer.trim();
+                if (isOk) {
+                    quizState.correct++;
+                    userStats.xp += 10;
+                } else {
+                    quizState.wrong++;
+                    if (!userStats.failedQuestions.some(item => item.question === q.question)) {
+                        userStats.failedQuestions.push(q);
+                    }
+                    recordCommunityFailure(q);
+                }
+                quizState.userAnswers.push({ question: q, selected: chosen, isCorrect: isOk });
+            }
+        });
+    }
 
     const total = quizState.mode === 'survival' ? (quizState.correct + quizState.wrong) : quizState.questions.length;
     const net = Math.max(0, quizState.correct - (quizState.wrong / 3));
@@ -887,6 +1016,11 @@ function initKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
         const quizVisible = !document.getElementById('view-quiz').classList.contains('hidden');
         if (!quizVisible) return;
+
+        if (quizState.mode === 'simulacre') {
+            if (e.key === 'ArrowRight') { nextQuestion(); return; }
+            if (e.key === 'ArrowLeft') { prevQuestion(); return; }
+        }
 
         const nextBtn = document.getElementById('btn-next');
         if (e.key === 'Enter' && !nextBtn.classList.contains('hidden')) {
@@ -1195,39 +1329,6 @@ function openAddQuestionToCurrentTopic() {
     });
 }
 
-async function ceoMigrateAllJson() {
-    if (currentUser?.email !== CEO_EMAIL) return;
-    showModal({
-        icon: '🚀',
-        title: 'Sincronitzar els 20 JSON locals a Firestore?',
-        text: 'Es llegiran preguntas-a1.json fins a c5.json de la carpeta del projecte i es pujaran al núvol.',
-        confirmText: 'Sincronitzar Ara',
-        onConfirm: async () => {
-            showSplashLoader('Pujant els 20 temes a Firestore...');
-            let count = 0;
-            for (const code of ALL_FILES) {
-                try {
-                    const res = await fetch(`preguntas-${code}.json`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        await setDoc(doc(db, "mossos_custom_questions", `bank_${code}`), {
-                            topic: code,
-                            questions: data,
-                            updatedAt: Date.now()
-                        });
-                        clearLocalBankCache(code);
-                        count++;
-                        updateSplashProgress(Math.round((count / 20) * 100), `Pujant Tema ${code.toUpperCase()} (${count}/20)...`);
-                    }
-                } catch (e) {}
-            }
-            hideSplashLoader();
-            showToast(`✅ ${count}/20 temes pujats a Firestore!`, 'success');
-            ceoLoadBanksStatus();
-        }
-    });
-}
-
 // ==========================================
 // PANEL CEO: CRM D'USUARIS, DETALLS, PRO I BANEIG
 // ==========================================
@@ -1463,11 +1564,12 @@ function confirmExitQuiz() {
 // Exposar funcions al DOM
 Object.assign(window, {
     switchTab, openSimulacreSection, openErrorsSection, launchErrorsQuiz, startSurvival,
-    startCommunityFailures, startAmbit, startTopic, startLiveEvent, skipQuestion,
-    nextQuestion, confirmExitQuiz, handleAuthClick, forceSignOut, openProModal,
+    startCommunityFailures, startAmbit, startTopic, startLiveEvent, prevQuestion,
+    nextQuestion, jumpToQuestion, toggleDoubtCurrent, clearCurrentAnswer,
+    confirmFinishSimulacre, confirmExitQuiz, handleAuthClick, forceSignOut, openProModal,
     copyReferralLink, redeemFriendCode, loadRanking, reportCurrentQuestion,
     selectProfileAvatar, saveUserProfileData, forceReloadQuestionBanks,
-    ceoMigrateAllJson, ceoLoadBanksStatus, triggerUploadJson, handleJsonFileUpload,
+    ceoLoadBanksStatus, triggerUploadJson, handleJsonFileUpload,
     ceoDeleteBank, ceoDownloadBackup, openTopicManager, closeTopicManager,
     filterTopicQuestions, deleteSingleQuestionFromTopic, openAddQuestionToCurrentTopic,
     ceoSaveAlert, ceoClearAlert, ceoSaveEvent, ceoClearEvent, ceoLoadReports,
