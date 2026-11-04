@@ -71,11 +71,11 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* FINESTRES MODALS PERSONALITZADES */
-.modal-overlay {
+/* FINESTRES MODALS I BLOQUEIG BAN */
+.modal-overlay, .ban-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(11, 25, 44, 0.65);
+    background: rgba(11, 25, 44, 0.7);
     backdrop-filter: blur(4px);
     z-index: 9000;
     display: flex;
@@ -84,16 +84,23 @@ body {
     padding: 20px;
 }
 
+.ban-overlay { z-index: 10000; background: rgba(11, 25, 44, 0.95); }
+
 .modal-card {
     background: #fff;
     border: 2px solid var(--border);
     border-bottom: 6px solid var(--border-shadow);
     border-radius: 24px;
     padding: 28px;
-    max-width: 420px;
+    max-width: 460px;
     width: 100%;
     text-align: center;
     animation: popIn 0.2s ease;
+}
+
+.modal-wide {
+    max-width: 780px;
+    text-align: left;
 }
 
 @keyframes popIn {
@@ -103,7 +110,7 @@ body {
 
 .modal-icon { font-size: 2.8rem; margin-bottom: 10px; }
 .modal-title { font-size: 1.35rem; font-weight: 900; color: var(--navy); margin-bottom: 8px; }
-.modal-text { font-size: 0.95rem; color: var(--muted); font-weight: 700; margin-bottom: 20px; line-height: 1.45; }
+.modal-text { font-size: 0.95rem; color: var(--muted); font-weight: 700; margin-bottom: 20px; line-height: 1.5; }
 .modal-actions { display: flex; gap: 12px; justify-content: center; margin-top: 16px; }
 .modal-actions .btn-3d { flex: 1; }
 
@@ -155,8 +162,9 @@ body {
 .logo-text { display: block; font-size: 1.35rem; font-weight: 900; color: var(--navy); line-height: 1; }
 .logo-sub { font-size: 0.75rem; font-weight: 800; color: var(--muted); }
 
-.duo-nav { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+.duo-nav { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
 
+/* BOTONS DE NAVEGACIÓ ESTIL DUOLINGO ( Blau actiu corregit ) */
 .duo-nav-item {
     display: flex;
     align-items: center;
@@ -164,22 +172,34 @@ body {
     padding: 13px 16px;
     border-radius: 16px;
     border: 2px solid transparent;
+    border-bottom: 4px solid transparent;
     background: transparent;
     color: var(--muted);
-    font-weight: 800;
+    font-weight: 900;
     font-size: 0.92rem;
     cursor: pointer;
-    transition: 0.15s;
+    transition: all 0.15s ease;
+    outline: none;
 }
 
-.duo-nav-item:hover { background: #F1F5F9; color: var(--navy); }
+.duo-nav-item:hover {
+    background: #F1F5F9;
+    color: var(--navy);
+}
+
 .duo-nav-item.active {
-    background: #E0F2FE;
-    border-color: #7DD3FC;
-    color: #0284C7;
+    background: #DDF4FF !important;
+    border: 2px solid #84D8FF !important;
+    border-bottom: 4px solid var(--blue) !important;
+    color: var(--blue) !important;
 }
 
-.ceo-btn { background: #FEF9C3; border-color: var(--gold); color: #A16207; }
+.ceo-btn {
+    background: #FEF9C3;
+    border-color: var(--gold);
+    color: #A16207;
+}
+
 .nav-icon { font-size: 1.35rem; }
 
 .pill-count {
@@ -189,6 +209,7 @@ body {
     padding: 2px 9px;
     border-radius: 99px;
     font-size: 0.75rem;
+    font-weight: 900;
 }
 
 /* BOTONS TÀCTILS 3D */
@@ -200,14 +221,16 @@ body {
     font-size: 0.92rem;
     letter-spacing: 0.4px;
     cursor: pointer;
-    transition: transform 0.08s, filter 0.15s;
+    transition: transform 0.08s ease, filter 0.15s ease;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
+    outline: none;
+    user-select: none;
 }
 
-.btn-3d:hover { filter: brightness(1.04); }
+.btn-3d:hover { filter: brightness(1.05); }
 .btn-3d:active { transform: translateY(3px); }
 
 .btn-navy { background: var(--navy); color: #fff; border-bottom: 4px solid var(--navy-shadow); }
@@ -218,7 +241,7 @@ body {
 .btn-purple { background: var(--purple); color: #fff; border-bottom: 4px solid var(--purple-shadow); }
 .btn-gray { background: #E2E8F0; color: var(--text); border-bottom: 4px solid var(--border-shadow); }
 .btn-white { background: #fff; color: var(--navy); border: 2px solid var(--border); border-bottom: 4px solid var(--border-shadow); }
-.btn-sm { padding: 8px 14px; font-size: 0.8rem; border-radius: 12px; }
+.btn-sm { padding: 8px 13px; font-size: 0.78rem; border-radius: 12px; }
 
 /* TOPBAR */
 .duo-main { flex-grow: 1; display: flex; flex-direction: column; max-width: 1180px; margin: 0 auto; width: 100%; }
@@ -307,9 +330,9 @@ body {
 .mode-big { justify-content: flex-start; text-align: left; padding: 18px; }
 .big-icon { font-size: 2rem; }
 .mode-big strong { display: block; font-size: 0.98rem; }
-.mode-big small { font-weight: 700; opacity: 0.9; font-size: 0.8rem; }
+.mode-big small { font-weight: 700; opacity: 0.92; font-size: 0.8rem; }
 .pro-mini {
-    background: rgba(0,0,0,0.22);
+    background: rgba(0,0,0,0.25);
     padding: 2px 6px;
     border-radius: 6px;
     font-size: 0.68rem;
@@ -378,9 +401,10 @@ body {
     cursor: pointer;
     font-weight: 900;
     color: var(--navy);
-    transition: transform 0.1s;
+    transition: transform 0.1s, border-color 0.15s;
 }
 
+.node-btn:hover { border-color: var(--blue); }
 .node-btn:active { transform: translateY(3px); }
 
 .node-circle {
@@ -520,7 +544,7 @@ body {
 .feedback-info p { font-size: 0.92rem; color: var(--muted); font-weight: 700; margin-top: 4px; }
 .quiz-actions { margin-left: auto; display: flex; gap: 12px; }
 
-/* TARGETES I LLISTES */
+/* TARGETES, GESTOR D'ARXIUS CEO I CRM */
 .card-clean {
     background: #fff;
     border: 2px solid var(--border);
@@ -529,10 +553,95 @@ body {
     padding: 22px;
 }
 
-.card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
 .ceo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
 .ceo-badge { background: var(--navy); color: var(--gold); padding: 6px 14px; border-radius: 99px; font-weight: 900; font-size: 0.8rem; }
 .ceo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 18px; }
+
+.banks-admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.bank-card {
+    border: 2px solid var(--border);
+    border-bottom: 4px solid var(--border-shadow);
+    border-radius: 16px;
+    padding: 14px;
+    background: #F8FAFC;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bank-card.online {
+    background: #F0FDF4;
+    border-color: #86EFAC;
+    border-bottom-color: var(--green);
+}
+
+.bank-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bank-head strong { font-size: 1.05rem; color: var(--navy); font-weight: 900; }
+.bank-status { font-size: 0.75rem; font-weight: 900; padding: 3px 8px; border-radius: 99px; background: #E2E8F0; color: var(--muted); }
+.bank-card.online .bank-status { background: #DCFCE7; color: #166534; }
+
+.bank-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.topic-manager-toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.topic-questions-scroll {
+    max-height: 440px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: 4px;
+}
+
+.q-edit-item {
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: #F8FAFC;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.user-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    text-align: left;
+    margin: 14px 0;
+}
+
+.u-stat-box {
+    background: #F8FAFC;
+    border: 2px solid var(--border);
+    padding: 10px 12px;
+    border-radius: 12px;
+}
+
+.u-stat-box small { display: block; font-size: 0.74rem; color: var(--muted); font-weight: 800; }
+.u-stat-box strong { font-size: 1rem; color: var(--navy); font-weight: 900; }
 
 .duo-input {
     width: 100%;
@@ -541,11 +650,11 @@ body {
     border-radius: 12px;
     font-weight: 800;
     font-size: 0.92rem;
-    margin-top: 8px;
-    margin-bottom: 8px;
+    margin-top: 6px;
+    margin-bottom: 6px;
 }
 
-.row-btns { display: flex; gap: 10px; margin-top: 8px; }
+.row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .ranking-list, .admin-list { display: flex; flex-direction: column; gap: 10px; }
 .rank-row, .admin-row {
     display: flex;
@@ -556,6 +665,7 @@ body {
     border-radius: 14px;
     font-weight: 800;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 /* RESULTATS */
@@ -607,4 +717,5 @@ body {
     .duo-nav { flex-direction: row; justify-content: space-around; width: 100%; }
     .content-view { padding: 16px 16px 95px; }
     .referral-card { grid-template-columns: 1fr; }
+    .user-detail-grid { grid-template-columns: 1fr; }
 }
