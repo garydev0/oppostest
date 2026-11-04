@@ -83,9 +83,9 @@ let userStats = JSON.parse(localStorage.getItem('oppostest_pro_stats')) || {
     lastStudyDate: null,
     todayDate: null,
     todayQuestionsCount: 0,
-    lastActivity: null, // { grade: '8.50', topic: 'Tema A1', timestamp: 123456 }
+    lastActivity: null,
     bestStreak: 0,
-    seenQuestions: [],     // Guarda l'ID de les preguntes ja vistes per prioritzar les noves!
+    seenQuestions: [],
     failedQuestions: [],
     savedQuestions: [],
     simulacreHistory: [],
@@ -96,7 +96,6 @@ let userStats = JSON.parse(localStorage.getItem('oppostest_pro_stats')) || {
     banned: false
 };
 
-// Compatibilitat amb dades anteriors
 if (!Array.isArray(userStats.seenQuestions)) userStats.seenQuestions = [];
 if (!Array.isArray(userStats.failedQuestions)) userStats.failedQuestions = [];
 if (!Array.isArray(userStats.savedQuestions)) userStats.savedQuestions = [];
@@ -148,7 +147,6 @@ function selectQuestionsPrioritizingUnseen(pool, count) {
         }
     });
 
-    // Prioritza sempre les preguntes NO vistes barrejades; si en falten, completa amb vistes barrejades
     const prioritized = [...shuffle(unseen), ...shuffle(seen)];
     return prioritized.slice(0, count);
 }
@@ -237,81 +235,132 @@ function showModal({ icon = '💡', title, text, html = null, showInput = false,
 }
 
 // ==========================================
-// INICIALITZACIÓ RÀPIDA DES DE FIRESTORE + 3CATINFO
+// INICIALITZACIÓ (ESPERA TEMARI + NOTÍCIES 3CATINFO ABANS DE TREURE EL LOADER)
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-    updateSplashProgress(20, 'Preparant tauler i estadístiques...');
+    updateSplashProgress(20, 'Preparant plataforma i sessió...');
     initFirebaseListeners();
     initKeyboardShortcuts();
-    load3CatInfoNews();
 
-    updateSplashProgress(55, 'Sincronitzant els 20 temes des del núvol...');
-    await fetchQuestionsFromCodes(ALL_FILES);
+    updateSplashProgress(50, 'Carregant els 20 temes i les notícies de 3CatInfo...');
+    // Esperem que es carreguin TANT les preguntes COM les notícies específiques de 3CatInfo
+    await Promise.all([
+        fetchQuestionsFromCodes(ALL_FILES),
+        load3CatInfoNews()
+    ]);
 
     renderTopicNodes();
     updateStatsUI();
 
-    updateSplashProgress(85, 'Comprovant esdeveniments i alertes...');
+    updateSplashProgress(88, 'Comprovant esdeveniments i alertes...');
     await Promise.all([loadGlobalAlert(), loadLiveEventBanner()]);
 
     hideSplashLoader();
 });
 
 // ==========================================
-// CARRUSEL AUTOMATITZAT DE NOTÍCIES 3CATINFO (RSS EN VIU)
+// CARRUSEL D'ARTICLES ESPECÍFICS DE 3CATINFO (API OFICIAL CCMA)
 // ==========================================
+function parseRssXmlToArticles(xmlString) {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+    const nodes = Array.from(xmlDoc.querySelectorAll("item"));
+    if (!nodes.length) throw new Error("Cap article a l'XML");
+
+    return nodes.slice(0, 12).map(node => {
+        const rawTitle = node.querySelector("title")?.textContent?.trim() || "";
+        let rawLink = node.querySelector("link")?.textContent?.trim() || node.querySelector("guid")?.textContent?.trim() || "";
+        const rawDate = node.querySelector("pubDate")?.textContent?.trim() || "";
+
+        // Assegurem que l'enllaç apunti a l'article concret de 3cat.cat/3catinfo
+        if (rawLink.includes("ccma.cat/324/")) {
+            rawLink = rawLink.replace("ccma.cat/324/", "3cat.cat/3catinfo/");
+        }
+
+        return {
+            title: rawTitle,
+            link: rawLink,
+            time: formatNewsTime(rawDate)
+        };
+    }).filter(a => a.title && a.link.includes("/noticia/"));
+}
+
+async function fetch3CatArticlesFromSources() {
+    // Endpoint oficial actiu de portada de notícies 3CatInfo / 324
+    const officialRssUrl = "https://api.ccma.cat/noticies?_format=rss&origen=frontal&frontal=n324-portada-noticia&version=2.0";
+
+    // Provem en paral·lel múltiples vies per obtenir sempre les notícies en menys d'1 segon
+    const viaDirectXml = async () => {
+        const r = await fetch(officialRssUrl);
+        if (!r.ok) throw new Error("Direct XML failed");
+        return parseRssXmlToArticles(await r.text());
+    };
+
+    const viaRss2Json = async () => {
+        const r = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(officialRssUrl)}`);
+        if (!r.ok) throw new Error("rss2json failed");
+        const data = await r.json();
+        if (!data.items || !data.items.length) throw new Error("No items");
+        return data.items.slice(0, 12).map(item => {
+            let link = item.link || item.guid || "";
+            if (link.includes("ccma.cat/324/")) link = link.replace("ccma.cat/324/", "3cat.cat/3catinfo/");
+            return {
+                title: item.title,
+                link,
+                time: formatNewsTime(item.pubDate)
+            };
+        }).filter(a => a.title && a.link);
+    };
+
+    const viaAllOrigins = async () => {
+        const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(officialRssUrl)}`);
+        if (!r.ok) throw new Error("allorigins failed");
+        return parseRssXmlToArticles(await r.text());
+    };
+
+    const viaCodeTabs = async () => {
+        const r = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(officialRssUrl)}`);
+        if (!r.ok) throw new Error("codetabs failed");
+        return parseRssXmlToArticles(await r.text());
+    };
+
+    return await Promise.any([viaDirectXml(), viaRss2Json(), viaAllOrigins(), viaCodeTabs()]);
+}
+
 async function load3CatInfoNews() {
     const track = document.getElementById('news-carousel-track');
     if (!track) return;
 
-    const rssUrl = "https://www.ccma.cat/xml/rss/324/portada.xml";
-    let items = [];
+    let articles = [];
 
+    // 1. Comprovar si tenim les notícies d'avui en caché recent (últims 10 minuts)
     try {
-        // Intent 1: Lector JSON d'RSS en temps real
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.items && data.items.length > 0) {
-                items = data.items.slice(0, 10).map(item => ({
-                    title: item.title,
-                    link: item.link,
-                    time: formatNewsTime(item.pubDate)
-                }));
+        const cached = sessionStorage.getItem('oppostest_3cat_news');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Date.now() - parsed.timestamp < 10 * 60 * 1000 && Array.isArray(parsed.articles) && parsed.articles.length > 0) {
+                articles = parsed.articles;
             }
         }
     } catch (e) {}
 
-    // Intent 2: Parser XML directe si el primer servei té límit
-    if (items.length === 0) {
+    // 2. Si no hi ha caché recent, descarregar articles específics en temps real
+    if (articles.length === 0) {
         try {
-            const resXml = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`);
-            if (resXml.ok) {
-                const xmlText = await resXml.text();
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                const xmlItems = Array.from(xmlDoc.querySelectorAll("item")).slice(0, 10);
-                items = xmlItems.map(node => ({
-                    title: node.querySelector("title")?.textContent || "Notícia 3CatInfo",
-                    link: node.querySelector("link")?.textContent || "https://www.3cat.cat/3catinfo/",
-                    time: formatNewsTime(node.querySelector("pubDate")?.textContent)
+            articles = await fetch3CatArticlesFromSources();
+            if (articles.length > 0) {
+                sessionStorage.setItem('oppostest_3cat_news', JSON.stringify({
+                    timestamp: Date.now(),
+                    articles
                 }));
             }
-        } catch (e) {}
-    }
-
-    // Fallback si l'usuari està sense connexió
-    if (items.length === 0) {
-        items = [
-            { title: "Consulta l'última hora política, social i institucional de Catalunya a 3CatInfo", link: "https://www.3cat.cat/3catinfo/", time: "Avui · Directe" },
-            { title: "Actualitat del Departament d'Interior i Seguretat Pública de la Generalitat", link: "https://www.3cat.cat/3catinfo/societat/", time: "Avui · Interior" },
-            { title: "Notícies de la Unió Europea i organismes internacionals susceptibles d'examen", link: "https://www.3cat.cat/3catinfo/mon/", time: "Avui · Internacional" },
-            { title: "Economia, demografia i dades oficials actualitzades de Catalunya", link: "https://www.3cat.cat/3catinfo/economia/", time: "Avui · Economia" }
-        ];
+        } catch (e) {
+            console.warn("No s'ha pogut connectar amb el feed RSS de 3CatInfo:", e);
+        }
     }
 
     track.innerHTML = '';
-    items.forEach(news => {
+    articles.forEach(news => {
         const a = document.createElement('a');
         a.className = 'mq-news-card';
         a.href = news.link;
@@ -329,12 +378,16 @@ async function load3CatInfoNews() {
 }
 
 function formatNewsTime(pubDateStr) {
-    if (!pubDateStr) return "Avui · 3CatInfo";
-    const d = new Date(pubDateStr);
-    if (isNaN(d.getTime())) return "Avui · 3CatInfo";
-    const hh = d.getHours().toString().padStart(2, '0');
-    const mm = d.getMinutes().toString().padStart(2, '0');
-    return `Avui · ${hh}:${mm}`;
+    if (!pubDateStr) return "Avui";
+    const d = new Date(pubDateStr.replace(/-/g, '/'));
+    const parsed = isNaN(d.getTime()) ? new Date(pubDateStr) : d;
+    if (isNaN(parsed.getTime())) return "Avui";
+
+    const now = new Date();
+    const isToday = parsed.toDateString() === now.toDateString();
+    const hh = parsed.getHours().toString().padStart(2, '0');
+    const mm = parsed.getMinutes().toString().padStart(2, '0');
+    return `${isToday ? 'Avui' : 'Recent'} · ${hh}:${mm}`;
 }
 
 function scrollNewsCarousel(direction) {
@@ -368,7 +421,6 @@ function calculatePoliceRank(xp) {
 }
 
 function updateBentoDashboard() {
-    // 1. Recomanació diària ("AVUI ET PROPOSEM")
     const scores = userStats.topicScores || {};
     let chosenCode = ALL_FILES.find(c => scores[c] === undefined) || ALL_FILES[0];
     if (Object.keys(scores).length === ALL_FILES.length) {
@@ -382,13 +434,11 @@ function updateBentoDashboard() {
         ? "Encara no l'has treballat · Prioritat preguntes noves"
         : `Última nota: ${scores[chosenCode].toFixed(1)} · Continua practicant preguntes no vistes`;
 
-    // 2. Rang Policial
     const rInfo = calculatePoliceRank(userStats.xp || 0);
     document.getElementById('mq-rank-name').textContent = rInfo.name;
     document.getElementById('mq-rank-bar').style.width = `${rInfo.pct}%`;
     document.getElementById('mq-rank-next').textContent = `${rInfo.missing} XP per a ${rInfo.nextName}`;
 
-    // 3. Objectiu d'avui (sobre 100 preguntes)
     const today = getTodayStr();
     if (userStats.todayDate !== today) {
         userStats.todayDate = today;
@@ -402,7 +452,6 @@ function updateBentoDashboard() {
         ? "🎉 Objectiu diari de 100 preguntes superat!"
         : `En falten ${leftToday} per l'objectiu d'avui`;
 
-    // 4. El meu progrés (% preguntes vistes del banc total)
     let totalBankQuestions = 0;
     ALL_FILES.forEach(c => { totalBankQuestions += (questionCache[c]?.length || 0); });
     const seenCount = (userStats.seenQuestions || []).length;
@@ -413,19 +462,17 @@ function updateBentoDashboard() {
     document.getElementById('mq-prog-seen').textContent = `● Temari vist: ${seenCount} de ${totalBankQuestions || '...'} preg. (${seenPct}%)`;
     document.getElementById('mq-prog-topics').textContent = `● Temes treballats: ${workedTopics} de 20`;
 
-    // 5. Última activitat
     if (userStats.lastActivity && userStats.lastActivity.grade !== undefined) {
         document.getElementById('mq-last-grade').textContent = userStats.lastActivity.grade;
         document.getElementById('mq-last-topic').textContent = userStats.lastActivity.topic;
         document.getElementById('mq-last-time').textContent = userStats.lastActivity.dateStr || 'Completat recentment';
     }
 
-    // 6. El teu per què
     document.getElementById('mq-why-text').textContent = userStats.goal || "Escriu per què vols ser mosso/a: t'ho recordarem aquí els dies que costi. ✍️";
 }
 
 function startRecommendedTopic() {
-    startTopic(recommendedTopicCode);
+    startTopic(recommendedTopicCode, 'tab-learn');
 }
 
 function nextCuriosity() {
@@ -450,17 +497,12 @@ function editPersonalWhy() {
     });
 }
 
-function scrollToTemari() {
-    openView('view-learn', 'tab-temari');
-    const el = document.getElementById('temari-anchor');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-}
-
 // ==========================================
-// TEMARI OFICIAL INTUÏTIU (SENSE SEMÀFOR)
+// VISTA PESTANYA TEMARI (INDEPENDENT I AMB FILTRE)
 // ==========================================
-function renderTopicNodes() {
+function renderTopicNodes(filterText = '') {
     const seenSet = new Set(userStats.seenQuestions || []);
+    const term = filterText.toLowerCase().trim();
 
     ['A', 'B', 'C'].forEach(ambit => {
         const container = document.getElementById(`nodes-${ambit}`);
@@ -468,6 +510,11 @@ function renderTopicNodes() {
         container.innerHTML = '';
 
         TOPICS[ambit].forEach(code => {
+            const officialTitle = TOPIC_NAMES[code] || `Tema ${code.toUpperCase()}`;
+            if (term && !code.toLowerCase().includes(term) && !officialTitle.toLowerCase().includes(term)) {
+                return;
+            }
+
             const topicQs = questionCache[code] || [];
             const totalQ = topicQs.length;
             const seenInTopic = topicQs.filter(q => seenSet.has(getQuestionKey(q))).length;
@@ -483,7 +530,7 @@ function renderTopicNodes() {
                     <span class="tc-badge">TEMA ${code.toUpperCase()}</span>
                     <span class="tc-grade">${scoreLabel}</span>
                 </div>
-                <div class="tc-title">${TOPIC_NAMES[code] || `Tema ${code.toUpperCase()}`}</div>
+                <div class="tc-title">${officialTitle}</div>
                 <div class="tc-progress-row">
                     <div class="mq-mini-bar"><div class="mq-mini-fill" style="width:${pctSeen}%"></div></div>
                     <div class="tc-progress-meta">
@@ -492,10 +539,15 @@ function renderTopicNodes() {
                     </div>
                 </div>
             `;
-            btn.onclick = () => startTopic(code);
+            btn.onclick = () => startTopic(code, 'tab-temari');
             container.appendChild(btn);
         });
     });
+}
+
+function filterTemariCards() {
+    const val = document.getElementById('temari-search-input')?.value || '';
+    renderTopicNodes(val);
 }
 
 // ==========================================
@@ -503,7 +555,7 @@ function renderTopicNodes() {
 // ==========================================
 function openView(viewId, activeTabId) {
     const allViews = [
-        'view-learn', 'view-simulacre-hub', 'view-errors-hub',
+        'view-learn', 'view-temari', 'view-simulacre-hub', 'view-errors-hub',
         'view-ranking', 'view-profile', 'view-ceo', 'view-quiz', 'view-results'
     ];
     allViews.forEach(id => {
@@ -521,6 +573,7 @@ function openView(viewId, activeTabId) {
 
     const targetTab = document.getElementById(activeTabId);
     if (targetTab) targetTab.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function isUserPro() {
@@ -1056,7 +1109,7 @@ function openCustomTestModal() {
 
             const selected = selectQuestionsPrioritizingUnseen(q, countVal);
             const timer = modeVal === 'simulacre' ? countVal * 70 : 0;
-            initQuiz(modeVal, `⚙️ TEST A MIDA (${countVal} preg)`, selected, timer, null, 'tab-learn');
+            initQuiz(modeVal, `⚙️ TEST A MIDA (${countVal} preg)`, selected, timer, null, 'tab-temari');
         }
     });
 }
@@ -1100,18 +1153,18 @@ function launchSavedQuiz() {
     initQuiz('study', '⭐ PREGUNTES GUARDADES', shuffle(userStats.savedQuestions), 0, null, 'tab-errors');
 }
 
-async function startTopic(code) {
+async function startTopic(code, fromTab = 'tab-temari') {
     const q = await fetchQuestionsFromCodes([code]);
     if (!q.length) return showToast(`No hi ha preguntes disponibles al Tema ${code.toUpperCase()}`, 'error');
     const selected = selectQuestionsPrioritizingUnseen(q, 20);
-    initQuiz('study', `TEMA ${code.toUpperCase()} · ${TOPIC_NAMES[code] || ''}`, selected, 0, code, 'tab-learn');
+    initQuiz('study', `TEMA ${code.toUpperCase()} · ${TOPIC_NAMES[code] || ''}`, selected, 0, code, fromTab);
 }
 
 async function startAmbit(letter) {
     const q = await fetchQuestionsFromCodes(TOPICS[letter]);
     if (!q.length) return;
     const selected = selectQuestionsPrioritizingUnseen(q, 25);
-    initQuiz('study', `ÀMBIT ${letter}`, selected, 0, null, 'tab-learn');
+    initQuiz('study', `ÀMBIT ${letter}`, selected, 0, null, 'tab-temari');
 }
 
 async function startSurvival() {
@@ -1478,7 +1531,6 @@ function finishQuiz() {
         userStats.topicScores[quizState.topicCode] = gradeNum;
     }
 
-    // Guardar última activitat per a la targeta blava del Bento
     userStats.lastActivity = {
         grade: quizState.mode === 'survival' ? `${quizState.correct}🔥` : gradeNum.toFixed(2),
         topic: quizState.topicCode ? `Tema ${quizState.topicCode.toUpperCase()}` : (quizState.mode === 'simulacre' ? 'Simulacre' : 'Test'),
@@ -1836,255 +1888,4 @@ function openAddQuestionToCurrentTopic() {
             await setDoc(doc(db, "mossos_custom_questions", `bank_${code}`), {
                 topic: code,
                 questions: currentManagedQuestions,
-                updatedAt: Date.now()
-            });
-            clearLocalBankCache(code);
-            ceoLoadBanksStatus();
-            showToast(`Pregunta afegida al Tema ${code.toUpperCase()}!`, 'success');
-        }
-    });
-}
-
-// ==========================================
-// PANEL CEO: CRM D'USUARIS, DETALLS, PRO I BANEIG
-// ==========================================
-async function ceoLoadUsers() {
-    if (currentUser?.email.toLowerCase() !== CEO_EMAIL.toLowerCase()) return;
-    const container = document.getElementById('ceo-users-list');
-    container.innerHTML = '<p class="muted-sm">Carregant usuaris...</p>';
-    const snap = await getDocs(collection(db, "users"));
-    allUsersCache = [];
-    snap.forEach(d => allUsersCache.push({ uid: d.id, ...d.data() }));
-    renderCeoUsersList(allUsersCache);
-}
-
-function ceoFilterUsers() {
-    const term = document.getElementById('ceo-user-search').value.toLowerCase().trim();
-    if (!term) {
-        renderCeoUsersList(allUsersCache);
-        return;
-    }
-    const filtered = allUsersCache.filter(u =>
-        (u.email || '').toLowerCase().includes(term) ||
-        (u.displayName || '').toLowerCase().includes(term) ||
-        u.uid.toLowerCase().includes(term)
-    );
-    renderCeoUsersList(filtered);
-}
-
-function renderCeoUsersList(usersArray) {
-    const container = document.getElementById('ceo-users-list');
-    container.innerHTML = '';
-
-    usersArray.forEach(u => {
-        const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
-        const invites = getInvitesCount(u.unlockedExams);
-        const isBanned = u.banned === true;
-
-        const div = document.createElement('div');
-        div.className = 'admin-row';
-        div.innerHTML = `
-            <div>
-                <strong>${u.avatar || '👮‍♂️'} ${u.displayName || 'Sense nom'}</strong> <small class="muted-sm">(${u.email || u.uid})</small><br>
-                <small>⚡ ${u.xp || 0} XP · 🔥 ${u.dailyStreak || 0}d · 👥 Convidats: <b>${invites}</b> · ${isPro ? '💎 PRO' : 'Gratis'} ${isBanned ? '· 🚫 BANEJAT' : ''}</small>
-            </div>
-            <div class="row-btns">
-                <button class="btn-3d btn-blue btn-sm" onclick="ceoInspectUser('${u.uid}')">🔍 Mostrar Detalls</button>
-                <button class="btn-3d btn-gold btn-sm" onclick="ceoTogglePro('${u.uid}', ${!isPro})">${isPro ? 'Treure PRO' : 'Donar PRO'}</button>
-                <button class="btn-3d ${isBanned ? 'btn-green' : 'btn-red'} btn-sm" onclick="ceoToggleBan('${u.uid}', ${!isBanned})">${isBanned ? 'Desbloquejar' : '🚫 Banejar'}</button>
-            </div>
-        `;
-        container.appendChild(div);
-    });
-}
-
-function ceoInspectUser(uid) {
-    const u = allUsersCache.find(item => item.uid === uid);
-    if (!u) return;
-
-    const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
-    const invites = getInvitesCount(u.unlockedExams);
-    const isBanned = u.banned === true;
-    const scoresObj = u.topicScores || {};
-    const completedTopics = Object.keys(scoresObj);
-    const avgScore = completedTopics.length > 0
-        ? (completedTopics.reduce((acc, k) => acc + scoresObj[k], 0) / completedTopics.length).toFixed(2)
-        : 'Cap test';
-
-    const lastDate = u.updatedAt ? new Date(u.updatedAt).toLocaleString('ca-ES') : 'Desconegut';
-
-    showModal({
-        icon: u.avatar || (isBanned ? '🚫' : '👮‍♂️'),
-        title: u.displayName || 'Perfil d\'Usuari',
-        html: `
-            <div class="muted-sm mb-2">${u.email || 'Sense correu'}<br><strong>${u.goal || ''}</strong><br><code>UID: ${u.uid}</code></div>
-            <div class="user-detail-grid">
-                <div class="u-stat-box"><small>Estat del Compte</small><strong>${isBanned ? '🚫 BANEJAT' : (isPro ? '💎 PRO ACTIU' : 'GRATIS')}</strong></div>
-                <div class="u-stat-box"><small>Persones Convidades</small><strong>👥 ${invites} amics</strong></div>
-                <div class="u-stat-box"><small>Experiència i Ratxa</small><strong>⚡ ${u.xp || 0} XP · 🔥 ${u.dailyStreak || 0} dies</strong></div>
-                <div class="u-stat-box"><small>Preguntes Vistes</small><strong>👁️ ${(u.seenQuestions || []).length} preg.</strong></div>
-                <div class="u-stat-box"><small>Nota Mitjana (${completedTopics.length}/20 temes)</small><strong>📊 ${avgScore}</strong></div>
-                <div class="u-stat-box"><small>Errors / Guardades</small><strong>❤️ ${(u.failedQuestions || []).length} · ⭐ ${(u.savedQuestions || []).length}</strong></div>
-            </div>
-            <small class="muted-sm">Última activitat: ${lastDate}</small>
-            <div class="row-btns mt-3" style="justify-content:center;">
-                <button class="btn-3d btn-gold btn-sm" onclick="ceoTogglePro('${u.uid}', ${!isPro}); document.getElementById('modal-overlay').classList.add('hidden');">${isPro ? 'Treure PRO' : 'Atorgar PRO'}</button>
-                <button class="btn-3d ${isBanned ? 'btn-green' : 'btn-red'} btn-sm" onclick="ceoToggleBan('${u.uid}', ${!isBanned}); document.getElementById('modal-overlay').classList.add('hidden');">${isBanned ? 'Treure Ban' : 'Banejar Compte'}</button>
-                <button class="btn-3d btn-gray btn-sm" onclick="ceoDeleteUserAccount('${u.uid}')">🗑️ Esborrar Usuari</button>
-            </div>
-        `,
-        cancelText: null,
-        confirmText: 'Tancar Fitxa'
-    });
-}
-
-async function ceoTogglePro(uid, givePro) {
-    await updateDoc(doc(db, "users", uid), { unlockedExams: givePro ? 999 : 0 });
-    showToast(givePro ? '💎 PRO atorgat a l\'usuari!' : 'PRO retirat de l\'usuari', 'success');
-    ceoLoadUsers();
-}
-
-async function ceoToggleBan(uid, banStatus) {
-    await updateDoc(doc(db, "users", uid), { banned: banStatus });
-    showToast(banStatus ? '🚫 Usuari banejat!' : '✅ Usuari desbloquejat!', banStatus ? 'error' : 'success');
-    ceoLoadUsers();
-}
-
-function ceoDeleteUserAccount(uid) {
-    showModal({
-        icon: '⚠️',
-        title: 'Esborrar perfil d\'usuari?',
-        text: 'Aquesta acció eliminarà totes les estadístiques d\'aquest usuari de Firestore.',
-        confirmText: 'Sí, Esborrar',
-        onConfirm: async () => {
-            await deleteDoc(doc(db, "users", uid));
-            showToast('Usuari eliminat de Firestore', 'info');
-            ceoLoadUsers();
-        }
-    });
-}
-
-// ==========================================
-// PANEL CEO: ALERTES, ESDEVENIMENTS I REPORTS
-// ==========================================
-async function loadGlobalAlert() {
-    try {
-        const snap = await getDoc(doc(db, "admin", "global"));
-        if (snap.exists() && snap.data().message) {
-            document.getElementById('global-alert-text').textContent = snap.data().message;
-            document.getElementById('global-alert-banner').classList.remove('hidden');
-        }
-    } catch (e) {}
-}
-
-async function ceoSaveAlert() {
-    const msg = document.getElementById('ceo-alert-input').value.trim();
-    await setDoc(doc(db, "admin", "global"), { message: msg });
-    loadGlobalAlert();
-    showToast('Alerta global publicada!', 'success');
-}
-
-async function ceoClearAlert() {
-    await setDoc(doc(db, "admin", "global"), { message: "" });
-    document.getElementById('global-alert-banner').classList.add('hidden');
-    showToast('Alerta amagada');
-}
-
-async function ceoSaveEvent() {
-    const title = document.getElementById('ceo-ev-title').value.trim() || 'Simulacre General de Catalunya';
-    const desc = document.getElementById('ceo-ev-desc').value.trim() || '30 preguntes oficials · 35 minuts · Temps real';
-    await setDoc(doc(db, "mossos_events", "active"), { active: true, title, desc });
-    loadLiveEventBanner();
-    showToast('🔴 Esdeveniment en Viu activat!', 'success');
-}
-
-async function ceoClearEvent() {
-    await setDoc(doc(db, "mossos_events", "active"), { active: false });
-    loadLiveEventBanner();
-    showToast('Esdeveniment desactivat');
-}
-
-async function ceoLoadReports() {
-    const container = document.getElementById('ceo-reports-list');
-    container.innerHTML = 'Carregant...';
-    const snap = await getDocs(collection(db, "reports"));
-    container.innerHTML = '';
-    if (snap.empty) {
-        container.innerHTML = '<p class="muted-sm">No hi ha cap report pendent.</p>';
-        return;
-    }
-    snap.forEach(d => {
-        const r = d.data();
-        const div = document.createElement('div');
-        div.className = 'admin-row';
-        div.innerHTML = `
-            <div><strong>${r.question}</strong><br><small>${r.reason} (${r.user || ''})</small></div>
-            <button class="btn-3d btn-red btn-sm" onclick="ceoDeleteReport('${d.id}')">Esborrar</button>
-        `;
-        container.appendChild(div);
-    });
-}
-
-async function ceoDeleteReport(id) {
-    await deleteDoc(doc(db, "reports", id));
-    showToast('Report eliminat');
-    ceoLoadReports();
-}
-
-// ==========================================
-// NAVEGACIÓ ESTRICTA ENTRE PESTANYES
-// ==========================================
-function switchTab(tab) {
-    clearInterval(quizState.timerInterval);
-
-    if (tab === 'learn') {
-        openView('view-learn', 'tab-learn');
-        renderTopicNodes();
-        updateBentoDashboard();
-    } else if (tab === 'simulacre') {
-        openView('view-simulacre-hub', 'tab-simulacre');
-        renderSimulacreHub();
-    } else if (tab === 'errors') {
-        openView('view-errors-hub', 'tab-errors');
-        renderErrorsHub();
-    } else if (tab === 'ranking') {
-        openView('view-ranking', 'tab-ranking');
-        loadRanking();
-    } else if (tab === 'profile') {
-        openView('view-profile', 'tab-profile');
-        renderProfileView();
-    } else if (tab === 'ceo' && currentUser?.email.toLowerCase() === CEO_EMAIL.toLowerCase()) {
-        openView('view-ceo', 'tab-ceo');
-        ceoLoadBanksStatus();
-        ceoLoadUsers();
-        ceoLoadReports();
-    }
-}
-
-function confirmExitQuiz() {
-    showModal({
-        icon: '⚠️',
-        title: 'Sortir de l\'entrenament?',
-        text: 'Si surts ara, perdràs el progrés d\'aquest test.',
-        confirmText: 'Sí, sortir',
-        cancelText: 'Continuar test',
-        onConfirm: () => switchTab('learn')
-    });
-}
-
-// Exposar funcions al DOM
-Object.assign(window, {
-    switchTab, scrollToTemari, startRecommendedTopic, nextCuriosity, editPersonalWhy,
-    scrollNewsCarousel, launchOfficialSimulacre, openCustomTestModal, launchErrorsQuiz,
-    launchSavedQuiz, startSurvival, startCommunityFailures, startAmbit, startTopic,
-    startLiveEvent, prevQuestion, nextQuestion, jumpToQuestion, toggleDoubtCurrent,
-    clearCurrentAnswer, toggleSaveCurrentQuestion, confirmFinishSimulacre, confirmExitQuiz,
-    handleAuthClick, forceSignOut, openProModal, copyReferralLink, redeemFriendCode,
-    loadRanking, reportCurrentQuestion, selectProfileAvatar, saveUserProfileData,
-    resetSeenQuestionsHistory, forceReloadQuestionBanks, ceoLoadBanksStatus,
-    triggerUploadJson, handleJsonFileUpload, ceoDeleteBank, ceoDownloadBackup,
-    openTopicManager, closeTopicManager, filterTopicQuestions, deleteSingleQuestionFromTopic,
-    openAddQuestionToCurrentTopic, ceoSaveAlert, ceoClearAlert, ceoSaveEvent, ceoClearEvent,
-    ceoLoadReports, ceoDeleteReport, ceoLoadUsers, ceoFilterUsers, ceoInspectUser,
-    ceoTogglePro, ceoToggleBan, ceoDeleteUserAccount
-});
+                updatedAt: Date.now
