@@ -32,15 +32,18 @@ const TOPICS = {
 };
 const ALL_FILES = [...TOPICS.A, ...TOPICS.B, ...TOPICS.C];
 
-// Caché intel·ligent per estalviar lectures de Firebase
+// Caché en memòria per velocitat instantània
 const questionCache = {};
 let allUsersCache = [];
 let currentUploadTargetCode = null;
 let currentManagedTopicCode = null;
 let currentManagedQuestions = [];
 
-// Estadístiques de l'opositor
+// Dades del Perfil i Estadístiques de l'opositor
 let userStats = JSON.parse(localStorage.getItem('oppostest_pro_stats')) || {
+    displayName: 'Opositor',
+    avatar: '👮‍♂️',
+    goal: 'Futura Promoció Mossos d\'Esquadra',
     xp: 0,
     dailyStreak: 0,
     lastStudyDate: null,
@@ -48,7 +51,7 @@ let userStats = JSON.parse(localStorage.getItem('oppostest_pro_stats')) || {
     failedQuestions: [],
     topicScores: {},
     freeProTrialsUsed: 0,
-    unlockedExams: 0, // Contador d'amics convidats (>=3 o true = PRO)
+    unlockedExams: 0,
     redeemedFriend: false,
     banned: false
 };
@@ -67,6 +70,35 @@ let quizState = {
     timerInterval: null,
     secondsLeft: 0
 };
+
+// ==========================================
+// PANTALLA DE CÀRREGA INICIAL (SPLASH SCREEN)
+// ==========================================
+function updateSplashProgress(percent, text) {
+    const bar = document.getElementById('splash-bar-fill');
+    const status = document.getElementById('splash-status');
+    if (bar) bar.style.width = `${percent}%`;
+    if (status && text) status.textContent = text;
+}
+
+function showSplashLoader(text = 'Carregant...') {
+    const splash = document.getElementById('splash-screen');
+    if (splash) {
+        splash.style.opacity = '1';
+        splash.classList.remove('hidden');
+        updateSplashProgress(40, text);
+    }
+}
+
+function hideSplashLoader() {
+    const splash = document.getElementById('splash-screen');
+    if (!splash) return;
+    updateSplashProgress(100, 'Tot a punt!');
+    setTimeout(() => {
+        splash.style.opacity = '0';
+        setTimeout(() => splash.classList.add('hidden'), 320);
+    }, 180);
+}
 
 // ==========================================
 // SISTEMA DE MODALS I TOASTS PERSONALITZATS
@@ -123,15 +155,23 @@ function showModal({ icon = '💡', title, text, html = null, showInput = false,
 }
 
 // ==========================================
-// INICIALITZACIÓ I NAVEGACIÓ ACTIVA (BLAU)
+// INICIALITZACIÓ RÀPIDA AMB PRE-CÀRREGA EN PARAL·LEL
 // ==========================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    updateSplashProgress(20, 'Preparant tauler i estadístiques...');
     renderTopicNodes();
     updateStatsUI();
     initFirebaseListeners();
-    loadGlobalAlert();
-    loadLiveEventBanner();
     initKeyboardShortcuts();
+
+    updateSplashProgress(55, 'Carregant els 20 temes oficials en memòria...');
+    // Pre-carreguem tots els temes en paral·lel perquè Simulacre sigui instantani!
+    await fetchQuestionsFromCodes(ALL_FILES);
+
+    updateSplashProgress(85, 'Sincronitzant esdeveniments i alertes...');
+    await Promise.all([loadGlobalAlert(), loadLiveEventBanner()]);
+
+    hideSplashLoader();
 });
 
 function setActiveNav(buttonId) {
@@ -215,6 +255,9 @@ function updateStatsUI() {
     document.getElementById('ui-errors').textContent = errCount;
     document.getElementById('sidebar-error-count').textContent = errCount;
 
+    document.getElementById('ui-user-avatar').textContent = userStats.avatar || '👮‍♂️';
+    document.getElementById('ui-user-name').textContent = userStats.displayName || 'Convidat';
+
     const proBadge = document.getElementById('ui-pro-badge');
     const proSideBtn = document.getElementById('btn-pro-sidebar');
     if (isUserPro()) {
@@ -238,7 +281,9 @@ async function saveStats() {
         try {
             await setDoc(doc(db, "users", currentUser.uid), {
                 email: currentUser.email,
-                displayName: currentUser.displayName || currentUser.email.split('@')[0],
+                displayName: userStats.displayName || currentUser.displayName || currentUser.email.split('@')[0],
+                avatar: userStats.avatar || '👮‍♂️',
+                goal: userStats.goal || 'Futura Promoció Mossos',
                 xp: userStats.xp,
                 dailyStreak: userStats.dailyStreak,
                 lastStudyDate: userStats.lastStudyDate,
@@ -255,19 +300,82 @@ async function saveStats() {
 }
 
 // ==========================================
+// GESTIÓ DE LA PANTALLA DE PERFIL D'USUARI
+// ==========================================
+function renderProfileView() {
+    document.getElementById('profile-big-avatar').textContent = userStats.avatar || '👮‍♂️';
+    document.getElementById('profile-display-title').textContent = userStats.displayName || 'Opositor';
+    document.getElementById('profile-email-subtitle').textContent = currentUser ? currentUser.email : 'Mode Local (Inicia sessió amb Google per guardar al núvol)';
+
+    document.getElementById('profile-name-input').value = userStats.displayName || '';
+    document.getElementById('profile-goal-input').value = userStats.goal || '';
+
+    document.querySelectorAll('.avatar-opt').forEach(btn => {
+        btn.classList.toggle('selected', btn.textContent.trim() === (userStats.avatar || '👮‍♂️'));
+    });
+
+    // Estadístiques de l'expedient
+    const scoresObj = userStats.topicScores || {};
+    const keys = Object.keys(scoresObj);
+    const avg = keys.length > 0 ? (keys.reduce((a, k) => a + scoresObj[k], 0) / keys.length).toFixed(2) : '0.00';
+    const passed = keys.filter(k => scoresObj[k] >= 5).length;
+
+    document.getElementById('prof-stat-pro').textContent = isUserPro() ? '💎 PRO ACTIU' : 'PLA GRATUÏT';
+    document.getElementById('prof-stat-invites').textContent = `${getInvitesCount(userStats.unlockedExams)} / 3 amics`;
+    document.getElementById('prof-stat-avg').textContent = avg;
+    document.getElementById('prof-stat-passed').textContent = `${passed} / 20 temes`;
+    document.getElementById('prof-stat-xp').textContent = `${userStats.xp || 0} XP ⚡`;
+    document.getElementById('prof-stat-streak').textContent = `${userStats.dailyStreak || 0} dies 🔥`;
+
+    const profAuthBtn = document.getElementById('profile-auth-btn');
+    profAuthBtn.textContent = currentUser ? '🚪 TANCAR SESSIÓ' : '👤 INICIAR SESSIÓ AMB GOOGLE';
+}
+
+function selectProfileAvatar(emoji) {
+    userStats.avatar = emoji;
+    document.getElementById('profile-big-avatar').textContent = emoji;
+    document.querySelectorAll('.avatar-opt').forEach(btn => {
+        btn.classList.toggle('selected', btn.textContent.trim() === emoji);
+    });
+}
+
+async function saveUserProfileData() {
+    const newName = document.getElementById('profile-name-input').value.trim();
+    const newGoal = document.getElementById('profile-goal-input').value.trim();
+
+    if (!newName) {
+        showToast('El nom públic no pot estar buit!', 'error');
+        return;
+    }
+
+    userStats.displayName = newName;
+    userStats.goal = newGoal || 'Futura Promoció Mossos d\'Esquadra';
+
+    await saveStats();
+    renderProfileView();
+    showToast('✅ Perfil actualitzat correctament!', 'success');
+}
+
+async function forceReloadQuestionBanks() {
+    showSplashLoader('Sincronitzant els 20 temes amb el núvol...');
+    ALL_FILES.forEach(code => clearLocalBankCache(code));
+    await fetchQuestionsFromCodes(ALL_FILES, true);
+    hideSplashLoader();
+    showToast('✅ Temari actualitzat a l\'última versió!', 'success');
+}
+
+// ==========================================
 // AUTENTICACIÓ, BLOQUEIG BAN I PERFIL CEO
 // ==========================================
 function initFirebaseListeners() {
     onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         const authBtn = document.getElementById('btn-auth-trigger');
-        const userTag = document.getElementById('ui-user-tag');
         const ceoTab = document.getElementById('tab-ceo');
         const refInput = document.getElementById('my-ref-code');
 
         if (user) {
             authBtn.textContent = "TANCAR SESSIÓ";
-            userTag.textContent = user.displayName || user.email.split('@')[0];
             refInput.value = user.uid;
 
             if (user.email === CEO_EMAIL) {
@@ -280,7 +388,6 @@ function initFirebaseListeners() {
             if (snap.exists()) {
                 const data = snap.data();
 
-                // Comprovació de BANEIG
                 if (data.banned === true && user.email !== CEO_EMAIL) {
                     userStats.banned = true;
                     document.getElementById('ban-screen').classList.remove('hidden');
@@ -290,6 +397,9 @@ function initFirebaseListeners() {
                     document.getElementById('ban-screen').classList.add('hidden');
                 }
 
+                userStats.displayName = data.displayName || user.displayName || user.email.split('@')[0];
+                userStats.avatar = data.avatar || userStats.avatar || '👮‍♂️';
+                userStats.goal = data.goal || userStats.goal || 'Futura Promoció Mossos';
                 userStats.xp = Math.max(userStats.xp, data.xp || 0);
                 userStats.dailyStreak = Math.max(userStats.dailyStreak, data.dailyStreak || 0);
                 userStats.lastStudyDate = data.lastStudyDate || userStats.lastStudyDate;
@@ -299,16 +409,19 @@ function initFirebaseListeners() {
                 userStats.unlockedExams = data.unlockedExams ?? userStats.unlockedExams;
                 updateStatsUI();
                 renderTopicNodes();
+                renderProfileView();
             } else {
+                userStats.displayName = user.displayName || user.email.split('@')[0];
                 await saveStats();
+                renderProfileView();
             }
         } else {
             document.getElementById('ban-screen').classList.add('hidden');
             authBtn.textContent = "👤 ENTRAR AMB GOOGLE";
-            userTag.textContent = "Convidat";
             refInput.value = "Inicia sessió per tenir codi";
             ceoTab.classList.add('hidden');
             updateStatsUI();
+            renderProfileView();
         }
     });
 }
@@ -401,7 +514,6 @@ async function redeemFriendCode() {
         const currentCount = typeof friendData.unlockedExams === 'number' ? friendData.unlockedExams : (friendData.unlockedExams === true ? 3 : 0);
         const newCount = currentCount + 1;
 
-        // Guardem el número exacte a 'unlockedExams' perquè compleix la regla Firestore i permet al CEO veure quants amics ha convidat!
         await updateDoc(friendRef, { unlockedExams: newCount });
 
         userStats.redeemedFriend = true;
@@ -414,56 +526,54 @@ async function redeemFriendCode() {
 }
 
 // ==========================================
-// CÀRREGA INTEL·LIGENT DE PREGUNTES (CACHÉ + FIRESTORE + JSON)
+// CÀRREGA EN PARAL·LEL ULTRA-RÀPIDA (ZERO BLOQUEJOS)
 // ==========================================
-async function fetchQuestionsFromCodes(codes, forceRefresh = false) {
-    let allQuestions = [];
-    for (const code of codes) {
-        if (!forceRefresh && questionCache[code] && questionCache[code].length > 0) {
-            allQuestions.push(...questionCache[code]);
-            continue;
-        }
+async function loadSingleTopicCode(code, forceRefresh = false) {
+    if (!forceRefresh && questionCache[code] && questionCache[code].length > 0) {
+        return questionCache[code];
+    }
 
-        // Mirar si està a localStorage per estalviar lectures de Firestore
-        const localBankKey = `oppostest_bank_${code}`;
-        if (!forceRefresh) {
-            const cachedLocal = localStorage.getItem(localBankKey);
-            if (cachedLocal) {
-                try {
-                    const parsed = JSON.parse(cachedLocal);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        questionCache[code] = parsed;
-                        allQuestions.push(...parsed);
-                        continue;
-                    }
-                } catch (e) {}
-            }
-        }
-
-        let loaded = [];
-        // 1. Carregar des de Firestore (/mossos_custom_questions/bank_a1)
-        try {
-            const bankSnap = await getDoc(doc(db, "mossos_custom_questions", `bank_${code}`));
-            if (bankSnap.exists() && Array.isArray(bankSnap.data().questions)) {
-                loaded = bankSnap.data().questions;
-            }
-        } catch (e) {}
-
-        // 2. Fallback a l'arxiu JSON local si no existeix a Firestore
-        if (loaded.length === 0) {
+    const localBankKey = `oppostest_bank_${code}`;
+    if (!forceRefresh) {
+        const cachedLocal = localStorage.getItem(localBankKey);
+        if (cachedLocal) {
             try {
-                const res = await fetch(`preguntas-${code}.json`);
-                if (res.ok) loaded = await res.json();
+                const parsed = JSON.parse(cachedLocal);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    questionCache[code] = parsed;
+                    return parsed;
+                }
             } catch (e) {}
         }
-
-        if (loaded.length > 0) {
-            questionCache[code] = loaded;
-            try { localStorage.setItem(localBankKey, JSON.stringify(loaded)); } catch (e) {}
-        }
-        allQuestions.push(...loaded);
     }
-    return allQuestions;
+
+    let loaded = [];
+    // 1. Intenta llegir el fitxer local primer si és ràpid, o Firestore si s'ha pujat
+    try {
+        const bankSnap = await getDoc(doc(db, "mossos_custom_questions", `bank_${code}`));
+        if (bankSnap.exists() && Array.isArray(bankSnap.data().questions)) {
+            loaded = bankSnap.data().questions;
+        }
+    } catch (e) {}
+
+    if (loaded.length === 0) {
+        try {
+            const res = await fetch(`preguntas-${code}.json`);
+            if (res.ok) loaded = await res.json();
+        } catch (e) {}
+    }
+
+    if (loaded.length > 0) {
+        questionCache[code] = loaded;
+        try { localStorage.setItem(localBankKey, JSON.stringify(loaded)); } catch (e) {}
+    }
+    return loaded;
+}
+
+async function fetchQuestionsFromCodes(codes, forceRefresh = false) {
+    // Executa totes les descàrregues ALHORA en paral·lel (10x més ràpid)
+    const results = await Promise.all(codes.map(code => loadSingleTopicCode(code, forceRefresh)));
+    return results.flat();
 }
 
 function clearLocalBankCache(code) {
@@ -481,7 +591,7 @@ function shuffle(arr) {
 }
 
 // ==========================================
-// SECCIONS SIMULACRE I ERRORS (BOTONS BLAUS ACTIUS)
+// SECCIONS SIMULACRE I ERRORS
 // ==========================================
 function checkProAccessOrTrial(callback) {
     if (isUserPro()) {
@@ -576,7 +686,7 @@ function startCommunityFailures() {
 }
 
 // ==========================================
-// MOTOR DEL TEST (30 PREGUNTES / 35 MINUTS EN SIMULACRE)
+// MOTOR DEL TEST (30 PREGUNTES / 35 MINUTS)
 // ==========================================
 function initQuiz(mode, title, questions, timerSeconds = 0, topicCode = null, navId = 'tab-learn') {
     clearInterval(quizState.timerInterval);
@@ -834,7 +944,7 @@ async function loadRanking() {
             const medal = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : `#${pos}`;
             const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
             row.innerHTML = `
-                <span>${medal} ${u.displayName || 'Opositor'} ${isPro ? '💎' : ''}</span>
+                <span>${medal} ${u.avatar || '👮‍♂️'} ${u.displayName || 'Opositor'} ${isPro ? '💎' : ''} <small class="muted-sm">${u.goal ? `· ${u.goal}` : ''}</small></span>
                 <span>🔥 ${u.dailyStreak || 0}d · ⚡ ${u.xp || 0} XP</span>
             `;
             list.appendChild(row);
@@ -976,7 +1086,6 @@ async function ceoDownloadBackup(code) {
     showToast(`Còpia preguntas-${code}.json descarregada!`, 'success');
 }
 
-// Editor Visual de les preguntes d'un Tema concret
 async function openTopicManager(code) {
     currentManagedTopicCode = code;
     document.getElementById('ceo-topic-modal-title').textContent = `Gestor de Preguntes · Tema ${code.toUpperCase()}`;
@@ -999,7 +1108,7 @@ function renderManagedTopicQuestions(questionsArray) {
     listEl.innerHTML = '';
 
     if (!questionsArray.length) {
-        listEl.innerHTML = '<p class="muted-sm">Aquest tema no té preguntes actualment. Pots pujar un JSON o afegir-ne una manualment.</p>';
+        listEl.innerHTML = '<p class="muted-sm">Aquest tema no té preguntes actualment.</p>';
         return;
     }
 
@@ -1094,6 +1203,7 @@ async function ceoMigrateAllJson() {
         text: 'Es llegiran preguntas-a1.json fins a c5.json de la carpeta del projecte i es pujaran al núvol.',
         confirmText: 'Sincronitzar Ara',
         onConfirm: async () => {
+            showSplashLoader('Pujant els 20 temes a Firestore...');
             let count = 0;
             for (const code of ALL_FILES) {
                 try {
@@ -1107,9 +1217,11 @@ async function ceoMigrateAllJson() {
                         });
                         clearLocalBankCache(code);
                         count++;
+                        updateSplashProgress(Math.round((count / 20) * 100), `Pujant Tema ${code.toUpperCase()} (${count}/20)...`);
                     }
                 } catch (e) {}
             }
+            hideSplashLoader();
             showToast(`✅ ${count}/20 temes pujats a Firestore!`, 'success');
             ceoLoadBanksStatus();
         }
@@ -1156,7 +1268,7 @@ function renderCeoUsersList(usersArray) {
         div.className = 'admin-row';
         div.innerHTML = `
             <div>
-                <strong>${u.displayName || 'Sense nom'}</strong> <small class="muted-sm">(${u.email || u.uid})</small><br>
+                <strong>${u.avatar || '👮‍♂️'} ${u.displayName || 'Sense nom'}</strong> <small class="muted-sm">(${u.email || u.uid})</small><br>
                 <small>⚡ ${u.xp || 0} XP · 🔥 ${u.dailyStreak || 0}d · 👥 Convidats: <b>${invites}</b> · ${isPro ? '💎 PRO' : 'Gratis'} ${isBanned ? '· 🚫 BANEJAT' : ''}</small>
             </div>
             <div class="row-btns">
@@ -1185,10 +1297,10 @@ function ceoInspectUser(uid) {
     const lastDate = u.updatedAt ? new Date(u.updatedAt).toLocaleString('ca-ES') : 'Desconegut';
 
     showModal({
-        icon: isBanned ? '🚫' : (isPro ? '💎' : '👤'),
+        icon: u.avatar || (isBanned ? '🚫' : '👮‍♂️'),
         title: u.displayName || 'Perfil d\'Usuari',
         html: `
-            <div class="muted-sm mb-2">${u.email || 'Sense correu'}<br><code>UID: ${u.uid}</code></div>
+            <div class="muted-sm mb-2">${u.email || 'Sense correu'}<br><strong>${u.goal || ''}</strong><br><code>UID: ${u.uid}</code></div>
             <div class="user-detail-grid">
                 <div class="u-stat-box"><small>Estat del Compte</small><strong>${isBanned ? '🚫 BANEJAT' : (isPro ? '💎 PRO ACTIU' : 'GRATIS')}</strong></div>
                 <div class="u-stat-box"><small>Persones Convidades</small><strong>👥 ${invites} amics</strong></div>
@@ -1210,7 +1322,6 @@ function ceoInspectUser(uid) {
 }
 
 async function ceoTogglePro(uid, givePro) {
-    // Si li donem PRO manualment posem 999 per distingir-ho dels amics convidats
     await updateDoc(doc(db, "users", uid), { unlockedExams: givePro ? 999 : 0 });
     showToast(givePro ? '💎 PRO atorgat a l\'usuari!' : 'PRO retirat de l\'usuari', 'success');
     ceoLoadUsers();
@@ -1307,7 +1418,7 @@ async function ceoDeleteReport(id) {
 // NAVEGACIÓ ENTRE VISTES
 // ==========================================
 function hideAllViews() {
-    ['view-learn', 'view-errors-hub', 'view-ranking', 'view-ceo', 'view-quiz', 'view-results'].forEach(id => {
+    ['view-learn', 'view-errors-hub', 'view-ranking', 'view-profile', 'view-ceo', 'view-quiz', 'view-results'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
     });
@@ -1325,6 +1436,10 @@ function switchTab(tab) {
         setActiveNav('tab-ranking');
         document.getElementById('view-ranking').classList.remove('hidden');
         loadRanking();
+    } else if (tab === 'profile') {
+        setActiveNav('tab-profile');
+        document.getElementById('view-profile').classList.remove('hidden');
+        renderProfileView();
     } else if (tab === 'ceo' && currentUser?.email === CEO_EMAIL) {
         setActiveNav('tab-ceo');
         document.getElementById('view-ceo').classList.remove('hidden');
@@ -1351,6 +1466,7 @@ Object.assign(window, {
     startCommunityFailures, startAmbit, startTopic, startLiveEvent, skipQuestion,
     nextQuestion, confirmExitQuiz, handleAuthClick, forceSignOut, openProModal,
     copyReferralLink, redeemFriendCode, loadRanking, reportCurrentQuestion,
+    selectProfileAvatar, saveUserProfileData, forceReloadQuestionBanks,
     ceoMigrateAllJson, ceoLoadBanksStatus, triggerUploadJson, handleJsonFileUpload,
     ceoDeleteBank, ceoDownloadBackup, openTopicManager, closeTopicManager,
     filterTopicQuestions, deleteSingleQuestionFromTopic, openAddQuestionToCurrentTopic,
