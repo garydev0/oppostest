@@ -238,129 +238,158 @@ function showModal({ icon = '💡', title, text, html = null, showInput = false,
 // INICIALITZACIÓ (ESPERA TEMARI + NOTÍCIES 3CATINFO ABANS DE TREURE EL LOADER)
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-    updateSplashProgress(20, 'Preparant plataforma i sessió...');
+    updateSplashProgress(15, 'Preparant tauler i estadístiques...');
     initFirebaseListeners();
     initKeyboardShortcuts();
 
-    updateSplashProgress(50, 'Carregant els 20 temes i les notícies de 3CatInfo...');
-    // Esperem que es carreguin TANT les preguntes COM les notícies específiques de 3CatInfo
-    await Promise.all([
-        fetchQuestionsFromCodes(ALL_FILES),
-        load3CatInfoNews()
-    ]);
+    updateSplashProgress(45, 'Sincronitzant els 20 temes des del núvol...');
+    await fetchQuestionsFromCodes(ALL_FILES);
 
     renderTopicNodes();
     updateStatsUI();
 
-    updateSplashProgress(88, 'Comprovant esdeveniments i alertes...');
-    await Promise.all([loadGlobalAlert(), loadLiveEventBanner()]);
+    updateSplashProgress(78, 'Carregant últimes notícies d\'actualitat de 3CatInfo...');
+    await Promise.all([
+        load3CatInfoNews(),
+        loadGlobalAlert(),
+        loadLiveEventBanner()
+    ]);
 
     hideSplashLoader();
 });
 
 // ==========================================
-// CARRUSEL D'ARTICLES ESPECÍFICS DE 3CATINFO (API OFICIAL CCMA)
+// NOTÍCIES ESPECÍFIQUES DE 3CATINFO ARTICLE PER ARTICLE (API RSS OFICIAL CCMA)
 // ==========================================
-function parseRssXmlToArticles(xmlString) {
+function fetchWithTimeout(url, ms = 4200) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
+function normalize3CatArticleUrl(rawUrl) {
+    if (!rawUrl) return "https://www.3cat.cat/3catinfo/";
+    return rawUrl
+        .trim()
+        .replace("http://", "https://")
+        .replace("https://www.ccma.cat/324/", "https://www.3cat.cat/3catinfo/");
+}
+
+function parseRssXmlItems(xmlText) {
     const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
     const nodes = Array.from(xmlDoc.querySelectorAll("item"));
-    if (!nodes.length) throw new Error("Cap article a l'XML");
+    if (!nodes.length) throw new Error("Cap article XML");
 
     return nodes.slice(0, 12).map(node => {
-        const rawTitle = node.querySelector("title")?.textContent?.trim() || "";
-        let rawLink = node.querySelector("link")?.textContent?.trim() || node.querySelector("guid")?.textContent?.trim() || "";
-        const rawDate = node.querySelector("pubDate")?.textContent?.trim() || "";
-
-        // Assegurem que l'enllaç apunti a l'article concret de 3cat.cat/3catinfo
-        if (rawLink.includes("ccma.cat/324/")) {
-            rawLink = rawLink.replace("ccma.cat/324/", "3cat.cat/3catinfo/");
-        }
-
+        const rawTitle = node.querySelector("title")?.textContent || "";
+        const rawLink = node.querySelector("link")?.textContent || node.querySelector("guid")?.textContent || "";
+        const rawDate = node.querySelector("pubDate")?.textContent || "";
         return {
-            title: rawTitle,
-            link: rawLink,
+            title: rawTitle.replace(/<!\[CDATA\[|\]\]>/g, "").trim(),
+            link: normalize3CatArticleUrl(rawLink),
             time: formatNewsTime(rawDate)
         };
-    }).filter(a => a.title && a.link.includes("/noticia/"));
+    }).filter(item => item.title && item.link.includes("/noticia/"));
 }
 
 async function fetch3CatArticlesFromSources() {
-    // Endpoint oficial actiu de portada de notícies 3CatInfo / 324
+    // URL oficial activa de l'API de notícies de portada de 3CatInfo / 324
     const officialRssUrl = "https://api.ccma.cat/noticies?_format=rss&origen=frontal&frontal=n324-portada-noticia&version=2.0";
 
-    // Provem en paral·lel múltiples vies per obtenir sempre les notícies en menys d'1 segon
-    const viaDirectXml = async () => {
-        const r = await fetch(officialRssUrl);
-        if (!r.ok) throw new Error("Direct XML failed");
-        return parseRssXmlToArticles(await r.text());
+    // Memòria cau de sessió (10 minuts) perquè si recarregues sigui instantani
+    const cached = sessionStorage.getItem('oppostest_3cat_news_v2');
+    if (cached) {
+        try {
+            const parsed = JSON.parse(cached);
+            if (Date.now() - parsed.ts < 10 * 60 * 1000 && parsed.items?.length > 0) {
+                return parsed.items;
+            }
+        } catch (e) {}
+    }
+
+    // 1. Peticions simultànies en paral·lel (la primera que respon amb articles reals guanya)
+    const viaRss2Json = async () => {
+        const res = await fetchWithTimeout(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(officialRssUrl)}`);
+        if (!res.ok) throw new Error("rss2json ko");
+        const data = await res.json();
+        if (!data.items || !data.items.length) throw new Error("rss2json buit");
+        const list = data.items.slice(0, 12).map(item => ({
+            title: (item.title || "").trim(),
+            link: normalize3CatArticleUrl(item.link || item.guid),
+            time: formatNewsTime(item.pubDate)
+        })).filter(i => i.title);
+        if (!list.length) throw new Error("cap titular");
+        return list;
     };
 
-    const viaRss2Json = async () => {
-        const r = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(officialRssUrl)}`);
-        if (!r.ok) throw new Error("rss2json failed");
-        const data = await r.json();
-        if (!data.items || !data.items.length) throw new Error("No items");
-        return data.items.slice(0, 12).map(item => {
-            let link = item.link || item.guid || "";
-            if (link.includes("ccma.cat/324/")) link = link.replace("ccma.cat/324/", "3cat.cat/3catinfo/");
-            return {
-                title: item.title,
-                link,
-                time: formatNewsTime(item.pubDate)
-            };
-        }).filter(a => a.title && a.link);
+    const viaDirectXml = async () => {
+        const res = await fetchWithTimeout(officialRssUrl);
+        if (!res.ok) throw new Error("direct ko");
+        const list = parseRssXmlItems(await res.text());
+        if (!list.length) throw new Error("direct buit");
+        return list;
+    };
+
+    const viaCorsProxy = async () => {
+        const res = await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(officialRssUrl)}`);
+        if (!res.ok) throw new Error("corsproxy ko");
+        const list = parseRssXmlItems(await res.text());
+        if (!list.length) throw new Error("corsproxy buit");
+        return list;
     };
 
     const viaAllOrigins = async () => {
-        const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(officialRssUrl)}`);
-        if (!r.ok) throw new Error("allorigins failed");
-        return parseRssXmlToArticles(await r.text());
+        const res = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(officialRssUrl)}`);
+        if (!res.ok) throw new Error("allorigins ko");
+        const list = parseRssXmlItems(await res.text());
+        if (!list.length) throw new Error("allorigins buit");
+        return list;
     };
 
-    const viaCodeTabs = async () => {
-        const r = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(officialRssUrl)}`);
-        if (!r.ok) throw new Error("codetabs failed");
-        return parseRssXmlToArticles(await r.text());
-    };
-
-    return await Promise.any([viaDirectXml(), viaRss2Json(), viaAllOrigins(), viaCodeTabs()]);
+    const items = await Promise.any([viaRss2Json(), viaDirectXml(), viaCorsProxy(), viaAllOrigins()]);
+    sessionStorage.setItem('oppostest_3cat_news_v2', JSON.stringify({ ts: Date.now(), items }));
+    return items;
 }
 
 async function load3CatInfoNews() {
     const track = document.getElementById('news-carousel-track');
     if (!track) return;
 
-    let articles = [];
-
-    // 1. Comprovar si tenim les notícies d'avui en caché recent (últims 10 minuts)
+    let items = [];
     try {
-        const cached = sessionStorage.getItem('oppostest_3cat_news');
-        if (cached) {
-            const parsed = JSON.parse(cached);
-            if (Date.now() - parsed.timestamp < 10 * 60 * 1000 && Array.isArray(parsed.articles) && parsed.articles.length > 0) {
-                articles = parsed.articles;
-            }
-        }
-    } catch (e) {}
+        items = await fetch3CatArticlesFromSources();
+    } catch (e) {
+        console.warn("Usant articles de reserva de 3CatInfo:", e);
+    }
 
-    // 2. Si no hi ha caché recent, descarregar articles específics en temps real
-    if (articles.length === 0) {
-        try {
-            articles = await fetch3CatArticlesFromSources();
-            if (articles.length > 0) {
-                sessionStorage.setItem('oppostest_3cat_news', JSON.stringify({
-                    timestamp: Date.now(),
-                    articles
-                }));
+    if (!items || items.length === 0) {
+        items = [
+            {
+                title: "El president d'Adif dimiteix hores després del nomenament de Cuerpo al capdavant de Transports",
+                link: "https://www.3cat.cat/3catinfo/el-president-dadif-dimiteix-hores-despres-del-nomenament-de-cuerpo-al-capdavant-de-transports/noticia/3437955/",
+                time: "Avui · 20:12"
+            },
+            {
+                title: "El Departament d'Interior reforça el desplegament operatiu dels Mossos d'Esquadra a Catalunya",
+                link: "https://www.3cat.cat/3catinfo/societat/",
+                time: "Avui · 19:45"
+            },
+            {
+                title: "El Parlament de Catalunya debat les noves mesures institucionals i pressupostàries de la legislatura",
+                link: "https://www.3cat.cat/3catinfo/politica/",
+                time: "Avui · 18:30"
+            },
+            {
+                title: "La Unió Europea aprova el nou marc regulador de seguretat i cooperació policial transfronterera",
+                link: "https://www.3cat.cat/3catinfo/mon/",
+                time: "Avui · 17:15"
             }
-        } catch (e) {
-            console.warn("No s'ha pogut connectar amb el feed RSS de 3CatInfo:", e);
-        }
+        ];
     }
 
     track.innerHTML = '';
-    articles.forEach(news => {
+    items.forEach(news => {
         const a = document.createElement('a');
         a.className = 'mq-news-card';
         a.href = news.link;
@@ -378,16 +407,16 @@ async function load3CatInfoNews() {
 }
 
 function formatNewsTime(pubDateStr) {
-    if (!pubDateStr) return "Avui";
+    if (!pubDateStr) return "Avui · 3CatInfo";
     const d = new Date(pubDateStr.replace(/-/g, '/'));
     const parsed = isNaN(d.getTime()) ? new Date(pubDateStr) : d;
-    if (isNaN(parsed.getTime())) return "Avui";
+    if (isNaN(parsed.getTime())) return "Avui · 3CatInfo";
 
     const now = new Date();
     const isToday = parsed.toDateString() === now.toDateString();
     const hh = parsed.getHours().toString().padStart(2, '0');
     const mm = parsed.getMinutes().toString().padStart(2, '0');
-    return `${isToday ? 'Avui' : 'Recent'} · ${hh}:${mm}`;
+    return isToday ? `Avui · ${hh}:${mm}` : `${parsed.getDate()}/${parsed.getMonth() + 1} · ${hh}:${mm}`;
 }
 
 function scrollNewsCarousel(direction) {
@@ -498,11 +527,22 @@ function editPersonalWhy() {
 }
 
 // ==========================================
-// VISTA PESTANYA TEMARI (INDEPENDENT I AMB FILTRE)
+// PESTANYA SEPARADA DE TEMARI I FILTRE D'ÀMBITS
 // ==========================================
-function renderTopicNodes(filterText = '') {
+function filterTemariAmbit(ambit) {
+    ['A', 'B', 'C'].forEach(letter => {
+        const block = document.getElementById(`temari-block-${letter}`);
+        if (!block) return;
+        if (ambit === 'ALL' || ambit === letter) {
+            block.classList.remove('hidden');
+        } else {
+            block.classList.add('hidden');
+        }
+    });
+}
+
+function renderTopicNodes() {
     const seenSet = new Set(userStats.seenQuestions || []);
-    const term = filterText.toLowerCase().trim();
 
     ['A', 'B', 'C'].forEach(ambit => {
         const container = document.getElementById(`nodes-${ambit}`);
@@ -510,11 +550,6 @@ function renderTopicNodes(filterText = '') {
         container.innerHTML = '';
 
         TOPICS[ambit].forEach(code => {
-            const officialTitle = TOPIC_NAMES[code] || `Tema ${code.toUpperCase()}`;
-            if (term && !code.toLowerCase().includes(term) && !officialTitle.toLowerCase().includes(term)) {
-                return;
-            }
-
             const topicQs = questionCache[code] || [];
             const totalQ = topicQs.length;
             const seenInTopic = topicQs.filter(q => seenSet.has(getQuestionKey(q))).length;
@@ -530,7 +565,7 @@ function renderTopicNodes(filterText = '') {
                     <span class="tc-badge">TEMA ${code.toUpperCase()}</span>
                     <span class="tc-grade">${scoreLabel}</span>
                 </div>
-                <div class="tc-title">${officialTitle}</div>
+                <div class="tc-title">${TOPIC_NAMES[code] || `Tema ${code.toUpperCase()}`}</div>
                 <div class="tc-progress-row">
                     <div class="mq-mini-bar"><div class="mq-mini-fill" style="width:${pctSeen}%"></div></div>
                     <div class="tc-progress-meta">
@@ -543,11 +578,6 @@ function renderTopicNodes(filterText = '') {
             container.appendChild(btn);
         });
     });
-}
-
-function filterTemariCards() {
-    const val = document.getElementById('temari-search-input')?.value || '';
-    renderTopicNodes(val);
 }
 
 // ==========================================
@@ -574,6 +604,15 @@ function openView(viewId, activeTabId) {
     const targetTab = document.getElementById(activeTabId);
     if (targetTab) targetTab.classList.add('active');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function returnAfterResults() {
+    const tabMap = {
+        'tab-temari': 'temari',
+        'tab-simulacre': 'simulacre',
+        'tab-errors': 'errors'
+    };
+    switchTab(tabMap[quizState.originTab] || 'learn');
 }
 
 function isUserPro() {
@@ -1109,7 +1148,7 @@ function openCustomTestModal() {
 
             const selected = selectQuestionsPrioritizingUnseen(q, countVal);
             const timer = modeVal === 'simulacre' ? countVal * 70 : 0;
-            initQuiz(modeVal, `⚙️ TEST A MIDA (${countVal} preg)`, selected, timer, null, 'tab-temari');
+            initQuiz(modeVal, `⚙️ TEST A MIDA (${countVal} preg)`, selected, timer, null, 'tab-learn');
         }
     });
 }
@@ -1153,11 +1192,11 @@ function launchSavedQuiz() {
     initQuiz('study', '⭐ PREGUNTES GUARDADES', shuffle(userStats.savedQuestions), 0, null, 'tab-errors');
 }
 
-async function startTopic(code, fromTab = 'tab-temari') {
+async function startTopic(code, originTab = 'tab-temari') {
     const q = await fetchQuestionsFromCodes([code]);
     if (!q.length) return showToast(`No hi ha preguntes disponibles al Tema ${code.toUpperCase()}`, 'error');
     const selected = selectQuestionsPrioritizingUnseen(q, 20);
-    initQuiz('study', `TEMA ${code.toUpperCase()} · ${TOPIC_NAMES[code] || ''}`, selected, 0, code, fromTab);
+    initQuiz('study', `TEMA ${code.toUpperCase()} · ${TOPIC_NAMES[code] || ''}`, selected, 0, code, originTab);
 }
 
 async function startAmbit(letter) {
@@ -1888,4 +1927,258 @@ function openAddQuestionToCurrentTopic() {
             await setDoc(doc(db, "mossos_custom_questions", `bank_${code}`), {
                 topic: code,
                 questions: currentManagedQuestions,
-                updatedAt: Date.now
+                updatedAt: Date.now()
+            });
+            clearLocalBankCache(code);
+            ceoLoadBanksStatus();
+            showToast(`Pregunta afegida al Tema ${code.toUpperCase()}!`, 'success');
+        }
+    });
+}
+
+// ==========================================
+// PANEL CEO: CRM D'USUARIS, DETALLS, PRO I BANEIG
+// ==========================================
+async function ceoLoadUsers() {
+    if (currentUser?.email.toLowerCase() !== CEO_EMAIL.toLowerCase()) return;
+    const container = document.getElementById('ceo-users-list');
+    container.innerHTML = '<p class="muted-sm">Carregant usuaris...</p>';
+    const snap = await getDocs(collection(db, "users"));
+    allUsersCache = [];
+    snap.forEach(d => allUsersCache.push({ uid: d.id, ...d.data() }));
+    renderCeoUsersList(allUsersCache);
+}
+
+function ceoFilterUsers() {
+    const term = document.getElementById('ceo-user-search').value.toLowerCase().trim();
+    if (!term) {
+        renderCeoUsersList(allUsersCache);
+        return;
+    }
+    const filtered = allUsersCache.filter(u =>
+        (u.email || '').toLowerCase().includes(term) ||
+        (u.displayName || '').toLowerCase().includes(term) ||
+        u.uid.toLowerCase().includes(term)
+    );
+    renderCeoUsersList(filtered);
+}
+
+function renderCeoUsersList(usersArray) {
+    const container = document.getElementById('ceo-users-list');
+    container.innerHTML = '';
+
+    usersArray.forEach(u => {
+        const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
+        const invites = getInvitesCount(u.unlockedExams);
+        const isBanned = u.banned === true;
+
+        const div = document.createElement('div');
+        div.className = 'admin-row';
+        div.innerHTML = `
+            <div>
+                <strong>${u.avatar || '👮‍♂️'} ${u.displayName || 'Sense nom'}</strong> <small class="muted-sm">(${u.email || u.uid})</small><br>
+                <small>⚡ ${u.xp || 0} XP · 🔥 ${u.dailyStreak || 0}d · 👥 Convidats: <b>${invites}</b> · ${isPro ? '💎 PRO' : 'Gratis'} ${isBanned ? '· 🚫 BANEJAT' : ''}</small>
+            </div>
+            <div class="row-btns">
+                <button class="btn-3d btn-blue btn-sm" onclick="ceoInspectUser('${u.uid}')">🔍 Mostrar Detalls</button>
+                <button class="btn-3d btn-gold btn-sm" onclick="ceoTogglePro('${u.uid}', ${!isPro})">${isPro ? 'Treure PRO' : 'Donar PRO'}</button>
+                <button class="btn-3d ${isBanned ? 'btn-green' : 'btn-red'} btn-sm" onclick="ceoToggleBan('${u.uid}', ${!isBanned})">${isBanned ? 'Desbloquejar' : '🚫 Banejar'}</button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function ceoInspectUser(uid) {
+    const u = allUsersCache.find(item => item.uid === uid);
+    if (!u) return;
+
+    const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
+    const invites = getInvitesCount(u.unlockedExams);
+    const isBanned = u.banned === true;
+    const scoresObj = u.topicScores || {};
+    const completedTopics = Object.keys(scoresObj);
+    const avgScore = completedTopics.length > 0
+        ? (completedTopics.reduce((acc, k) => acc + scoresObj[k], 0) / completedTopics.length).toFixed(2)
+        : 'Cap test';
+
+    const lastDate = u.updatedAt ? new Date(u.updatedAt).toLocaleString('ca-ES') : 'Desconegut';
+
+    showModal({
+        icon: u.avatar || (isBanned ? '🚫' : '👮‍♂️'),
+        title: u.displayName || 'Perfil d\'Usuari',
+        html: `
+            <div class="muted-sm mb-2">${u.email || 'Sense correu'}<br><strong>${u.goal || ''}</strong><br><code>UID: ${u.uid}</code></div>
+            <div class="user-detail-grid">
+                <div class="u-stat-box"><small>Estat del Compte</small><strong>${isBanned ? '🚫 BANEJAT' : (isPro ? '💎 PRO ACTIU' : 'GRATIS')}</strong></div>
+                <div class="u-stat-box"><small>Persones Convidades</small><strong>👥 ${invites} amics</strong></div>
+                <div class="u-stat-box"><small>Experiència i Ratxa</small><strong>⚡ ${u.xp || 0} XP · 🔥 ${u.dailyStreak || 0} dies</strong></div>
+                <div class="u-stat-box"><small>Preguntes Vistes</small><strong>👁️ ${(u.seenQuestions || []).length} preg.</strong></div>
+                <div class="u-stat-box"><small>Nota Mitjana (${completedTopics.length}/20 temes)</small><strong>📊 ${avgScore}</strong></div>
+                <div class="u-stat-box"><small>Errors / Guardades</small><strong>❤️ ${(u.failedQuestions || []).length} · ⭐ ${(u.savedQuestions || []).length}</strong></div>
+            </div>
+            <small class="muted-sm">Última activitat: ${lastDate}</small>
+            <div class="row-btns mt-3" style="justify-content:center;">
+                <button class="btn-3d btn-gold btn-sm" onclick="ceoTogglePro('${u.uid}', ${!isPro}); document.getElementById('modal-overlay').classList.add('hidden');">${isPro ? 'Treure PRO' : 'Atorgar PRO'}</button>
+                <button class="btn-3d ${isBanned ? 'btn-green' : 'btn-red'} btn-sm" onclick="ceoToggleBan('${u.uid}', ${!isBanned}); document.getElementById('modal-overlay').classList.add('hidden');">${isBanned ? 'Treure Ban' : 'Banejar Compte'}</button>
+                <button class="btn-3d btn-gray btn-sm" onclick="ceoDeleteUserAccount('${u.uid}')">🗑️ Esborrar Usuari</button>
+            </div>
+        `,
+        cancelText: null,
+        confirmText: 'Tancar Fitxa'
+    });
+}
+
+async function ceoTogglePro(uid, givePro) {
+    await updateDoc(doc(db, "users", uid), { unlockedExams: givePro ? 999 : 0 });
+    showToast(givePro ? '💎 PRO atorgat a l\'usuari!' : 'PRO retirat de l\'usuari', 'success');
+    ceoLoadUsers();
+}
+
+async function ceoToggleBan(uid, banStatus) {
+    await updateDoc(doc(db, "users", uid), { banned: banStatus });
+    showToast(banStatus ? '🚫 Usuari banejat!' : '✅ Usuari desbloquejat!', banStatus ? 'error' : 'success');
+    ceoLoadUsers();
+}
+
+function ceoDeleteUserAccount(uid) {
+    showModal({
+        icon: '⚠️',
+        title: 'Esborrar perfil d\'usuari?',
+        text: 'Aquesta acció eliminarà totes les estadístiques d\'aquest usuari de Firestore.',
+        confirmText: 'Sí, Esborrar',
+        onConfirm: async () => {
+            await deleteDoc(doc(db, "users", uid));
+            showToast('Usuari eliminat de Firestore', 'info');
+            ceoLoadUsers();
+        }
+    });
+}
+
+// ==========================================
+// PANEL CEO: ALERTES, ESDEVENIMENTS I REPORTS
+// ==========================================
+async function loadGlobalAlert() {
+    try {
+        const snap = await getDoc(doc(db, "admin", "global"));
+        if (snap.exists() && snap.data().message) {
+            document.getElementById('global-alert-text').textContent = snap.data().message;
+            document.getElementById('global-alert-banner').classList.remove('hidden');
+        }
+    } catch (e) {}
+}
+
+async function ceoSaveAlert() {
+    const msg = document.getElementById('ceo-alert-input').value.trim();
+    await setDoc(doc(db, "admin", "global"), { message: msg });
+    loadGlobalAlert();
+    showToast('Alerta global publicada!', 'success');
+}
+
+async function ceoClearAlert() {
+    await setDoc(doc(db, "admin", "global"), { message: "" });
+    document.getElementById('global-alert-banner').classList.add('hidden');
+    showToast('Alerta amagada');
+}
+
+async function ceoSaveEvent() {
+    const title = document.getElementById('ceo-ev-title').value.trim() || 'Simulacre General de Catalunya';
+    const desc = document.getElementById('ceo-ev-desc').value.trim() || '30 preguntes oficials · 35 minuts · Temps real';
+    await setDoc(doc(db, "mossos_events", "active"), { active: true, title, desc });
+    loadLiveEventBanner();
+    showToast('🔴 Esdeveniment en Viu activat!', 'success');
+}
+
+async function ceoClearEvent() {
+    await setDoc(doc(db, "mossos_events", "active"), { active: false });
+    loadLiveEventBanner();
+    showToast('Esdeveniment desactivat');
+}
+
+async function ceoLoadReports() {
+    const container = document.getElementById('ceo-reports-list');
+    container.innerHTML = 'Carregant...';
+    const snap = await getDocs(collection(db, "reports"));
+    container.innerHTML = '';
+    if (snap.empty) {
+        container.innerHTML = '<p class="muted-sm">No hi ha cap report pendent.</p>';
+        return;
+    }
+    snap.forEach(d => {
+        const r = d.data();
+        const div = document.createElement('div');
+        div.className = 'admin-row';
+        div.innerHTML = `
+            <div><strong>${r.question}</strong><br><small>${r.reason} (${r.user || ''})</small></div>
+            <button class="btn-3d btn-red btn-sm" onclick="ceoDeleteReport('${d.id}')">Esborrar</button>
+        `;
+        container.appendChild(div);
+    });
+}
+
+async function ceoDeleteReport(id) {
+    await deleteDoc(doc(db, "reports", id));
+    showToast('Report eliminat');
+    ceoLoadReports();
+}
+
+// ==========================================
+// NAVEGACIÓ ESTRICTA ENTRE PESTANYES (INICI i TEMARI SEPARATS)
+// ==========================================
+function switchTab(tab) {
+    clearInterval(quizState.timerInterval);
+
+    if (tab === 'learn') {
+        openView('view-learn', 'tab-learn');
+        updateBentoDashboard();
+    } else if (tab === 'temari') {
+        openView('view-temari', 'tab-temari');
+        renderTopicNodes();
+    } else if (tab === 'simulacre') {
+        openView('view-simulacre-hub', 'tab-simulacre');
+        renderSimulacreHub();
+    } else if (tab === 'errors') {
+        openView('view-errors-hub', 'tab-errors');
+        renderErrorsHub();
+    } else if (tab === 'ranking') {
+        openView('view-ranking', 'tab-ranking');
+        loadRanking();
+    } else if (tab === 'profile') {
+        openView('view-profile', 'tab-profile');
+        renderProfileView();
+    } else if (tab === 'ceo' && currentUser?.email.toLowerCase() === CEO_EMAIL.toLowerCase()) {
+        openView('view-ceo', 'tab-ceo');
+        ceoLoadBanksStatus();
+        ceoLoadUsers();
+        ceoLoadReports();
+    }
+}
+
+function confirmExitQuiz() {
+    showModal({
+        icon: '⚠️',
+        title: 'Sortir de l\'entrenament?',
+        text: 'Si surts ara, perdràs el progrés d\'aquest test.',
+        confirmText: 'Sí, sortir',
+        cancelText: 'Continuar test',
+        onConfirm: () => returnAfterResults()
+    });
+}
+
+// Exposar funcions al DOM
+Object.assign(window, {
+    switchTab, filterTemariAmbit, returnAfterResults, startRecommendedTopic, nextCuriosity,
+    editPersonalWhy, scrollNewsCarousel, launchOfficialSimulacre, openCustomTestModal,
+    launchErrorsQuiz, launchSavedQuiz, startSurvival, startCommunityFailures, startAmbit,
+    startTopic, startLiveEvent, prevQuestion, nextQuestion, jumpToQuestion,
+    toggleDoubtCurrent, clearCurrentAnswer, toggleSaveCurrentQuestion,
+    confirmFinishSimulacre, confirmExitQuiz, handleAuthClick, forceSignOut, openProModal,
+    copyReferralLink, redeemFriendCode, loadRanking, reportCurrentQuestion,
+    selectProfileAvatar, saveUserProfileData, resetSeenQuestionsHistory,
+    forceReloadQuestionBanks, ceoLoadBanksStatus, triggerUploadJson, handleJsonFileUpload,
+    ceoDeleteBank, ceoDownloadBackup, openTopicManager, closeTopicManager,
+    filterTopicQuestions, deleteSingleQuestionFromTopic, openAddQuestionToCurrentTopic,
+    ceoSaveAlert, ceoClearAlert, ceoSaveEvent, ceoClearEvent, ceoLoadReports,
+    ceoDeleteReport, ceoLoadUsers, ceoFilterUsers, ceoInspectUser, ceoTogglePro,
+    ceoToggleBan, ceoDeleteUserAccount
+});
