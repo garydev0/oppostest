@@ -12,15 +12,25 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Pantalla de bloqueig si l'usuari està BANEJAT pel CEO -->
+    <div id="ban-screen" class="ban-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-icon">🚫</div>
+            <h2 class="modal-title">Compte Suspès</h2>
+            <p class="modal-text">L'administrador d'Oppostest ha bloquejat l'accés d'aquest compte per incompliment de les normes d'ús.</p>
+            <button class="btn-3d btn-gray w-full" onclick="forceSignOut()">Tancar Sessió</button>
+        </div>
+    </div>
+
     <!-- Contenidor de Notificacions Flotants (Toasts) -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- Finestra Modal Personalitzada (Substitueix alert/confirm/prompt) -->
+    <!-- Finestra Modal Genèrica Personalitzada -->
     <div id="modal-overlay" class="modal-overlay hidden">
         <div class="modal-card">
             <div id="modal-icon" class="modal-icon">💡</div>
             <h3 id="modal-title" class="modal-title">Títol</h3>
-            <p id="modal-text" class="modal-text">Missatge</p>
+            <div id="modal-text" class="modal-text">Missatge</div>
             <input type="text" id="modal-input" class="duo-input hidden" placeholder="Escriu aquí...">
             <div class="modal-actions">
                 <button id="modal-cancel" class="btn-3d btn-gray">Cancel·lar</button>
@@ -28,6 +38,24 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal Especial CEO: Editor de Preguntes d'un Tema -->
+    <div id="ceo-topic-modal" class="modal-overlay hidden">
+        <div class="modal-card modal-wide">
+            <div class="card-head">
+                <h3 id="ceo-topic-modal-title">Gestor del Tema A1</h3>
+                <button class="btn-icon" onclick="closeTopicManager()">✕</button>
+            </div>
+            <div class="topic-manager-toolbar">
+                <input type="text" id="ceo-search-q" class="duo-input" placeholder="🔍 Buscar pregunta dins d'aquest tema..." oninput="filterTopicQuestions()">
+                <button class="btn-3d btn-green btn-sm" onclick="openAddQuestionToCurrentTopic()">➕ Nova Pregunta</button>
+            </div>
+            <div id="ceo-topic-questions-list" class="topic-questions-scroll"></div>
+        </div>
+    </div>
+
+    <!-- Input ocult per pujar fitxers JSON des del PC -->
+    <input type="file" id="ceo-file-uploader" accept=".json" class="hidden" onchange="handleJsonFileUpload(event)">
 
     <!-- Alerta Global del CEO -->
     <div id="global-alert-banner" class="alert-banner hidden">
@@ -50,11 +78,11 @@
                     <span class="nav-icon">🎯</span>
                     <span class="nav-label">ENTRENAR</span>
                 </button>
-                <button id="tab-simulacre" class="duo-nav-item" onclick="startSimulacre()">
+                <button id="tab-simulacre" class="duo-nav-item" onclick="openSimulacreSection()">
                     <span class="nav-icon">⏱️</span>
                     <span class="nav-label">SIMULACRE</span>
                 </button>
-                <button id="tab-errors" class="duo-nav-item" onclick="startErrorsMode()">
+                <button id="tab-errors" class="duo-nav-item" onclick="openErrorsSection()">
                     <span class="nav-icon">🧠</span>
                     <span class="nav-label">ERRORS</span>
                     <span id="sidebar-error-count" class="pill-count">0</span>
@@ -103,18 +131,18 @@
                     <div class="live-info">
                         <span class="live-tag">🔴 ESDEVENIMENT OFICIAL EN VIU</span>
                         <h3 id="live-event-title">Simulacre General de Catalunya</h3>
-                        <p id="live-event-desc">35 preguntes oficials · Puntuació pel rànquing</p>
+                        <p id="live-event-desc">30 preguntes oficials · 35 minuts · Puntuació pel rànquing</p>
                     </div>
                     <button class="btn-3d btn-white" onclick="startLiveEvent()">PARTICIPAR ARA →</button>
                 </div>
 
                 <!-- 4 Modes Especials -->
                 <div class="quick-modes">
-                    <button class="btn-3d btn-red mode-big" onclick="startSimulacre()">
+                    <button class="btn-3d btn-red mode-big" onclick="openSimulacreSection()">
                         <span class="big-icon">⏱️</span>
                         <div>
                             <strong>SIMULACRE OFICIAL <span class="pro-mini">PRO</span></strong>
-                            <small>35 preg · 35 min · -1/3</small>
+                            <small>30 preg · 35 min · -1/3</small>
                         </div>
                     </button>
                     <button class="btn-3d btn-gold mode-big" onclick="startSurvival()">
@@ -124,7 +152,7 @@
                             <small>Rècord: <span id="ui-best-survival">0</span> seguides</small>
                         </div>
                     </button>
-                    <button class="btn-3d btn-blue mode-big" onclick="startErrorsMode()">
+                    <button class="btn-3d btn-blue mode-big" onclick="openErrorsSection()">
                         <span class="big-icon">🧠</span>
                         <div>
                             <strong>REPASSAR ERRORS</strong>
@@ -144,7 +172,7 @@
                 <div class="legend-bar">
                     <span><strong>Semàfor de domini:</strong></span>
                     <span class="leg-item"><i class="dot dot-gray"></i> Pendent</span>
-                    <span class="leg-item"><i class="dot dot-red"></i> &lt; 5.0</span>
+                    <span class="leg-item"><i class="dot dot-red"></i> Menys de 5</span>
                     <span class="leg-item"><i class="dot dot-yellow"></i> 5.0 - 6.9</span>
                     <span class="leg-item"><i class="dot dot-green"></i> 7.0 - 8.9</span>
                     <span class="leg-item"><i class="dot dot-gold"></i> 9.0 - 10</span>
@@ -181,16 +209,28 @@
                 <div id="nodes-C" class="nodes-grid"></div>
             </section>
 
+            <!-- VISTA ESPECIAL: PANTALLA D'ERRORS QUAN ESTÀ BUIDA O LLESTA -->
+            <section id="view-errors-hub" class="content-view hidden">
+                <div class="results-box">
+                    <div class="modal-icon">🧠</div>
+                    <h2 id="errors-hub-title"> Centre de Repàs d'Errors</h2>
+                    <p id="errors-hub-desc" class="modal-text mt-2">Aquí s'acumulen totes les preguntes que falles als tests i simulacres. Quan les encertis en aquest mode, quedaran netejades.</p>
+                    <div class="mt-3">
+                        <button id="btn-start-errors-now" class="btn-3d btn-blue w-full" onclick="launchErrorsQuiz()">COMENÇAR REPÀS D'ERRORS</button>
+                    </div>
+                </div>
+            </section>
+
             <!-- VISTA 2: LLIGA I SISTEMA DE REFERITS PRO -->
             <section id="view-ranking" class="content-view hidden">
                 <div class="referral-card">
                     <div>
                         <span class="unit-tag">💎 DESBLOQUEJA OPPOSTEST PRO GRATIS</span>
                         <h3>Convida 3 companys d'oposició i aconsegueix PRO il·limitat</h3>
-                        <p>Comparteix el teu codi d'amic. Quan 3 usuaris el posin, tindràs accés total a Simulacres i Top Fallades.</p>
+                        <p>Comparteix el teu codi d'amic. Quan 3 usuaris el validin, tindràs accés total a Simulacres Oficials i Top Fallades.</p>
                         <div class="ref-box">
                             <input type="text" id="my-ref-code" class="duo-input" readonly value="Inicia sessió per veure el codi">
-                            <button class="btn-3d btn-gold" onclick="copyReferralLink()">📋 Copiar Enllaç</button>
+                            <button class="btn-3d btn-gold" onclick="copyReferralLink()">📋 Copiar Codi</button>
                         </div>
                     </div>
                     <div class="ref-redeem">
@@ -212,19 +252,43 @@
             <!-- VISTA 3: PANEL CEO (Només gerardlopezgarcia1@gmail.com) -->
             <section id="view-ceo" class="content-view hidden">
                 <div class="ceo-header">
-                    <h2>👑 Centre de Comandament CEO</h2>
+                    <div>
+                        <h2>👑 Centre de Comandament CEO</h2>
+                        <p class="muted-sm">Gestió de fitxers a Firestore, preguntes, esdeveniments i CRM d'usuaris</p>
+                    </div>
                     <span class="ceo-badge">gerardlopezgarcia1@gmail.com</span>
                 </div>
 
-                <!-- MIGRADOR DE JSON A FIRESTORE -->
+                <!-- BLOC 1: GESTOR D'ARXIUS I BANCS DE PREGUNTES A FIRESTORE -->
                 <div class="card-clean mb-3 border-gold">
-                    <h3>🔒 Blindatge de Base de Dades (Migrar JSON a Firestore)</h3>
-                    <p class="muted-sm">Llegeix els 20 arxius <code>preguntas-a1.json ... c5.json</code> i els puja comprimits a Firestore (<code>/mossos_custom_questions/bank_a1...</code>). Un cop completat, podràs esborrar els JSON públics de GitHub.</p>
-                    <button class="btn-3d btn-gold mt-2" onclick="ceoMigrateAllJson()">🚀 Migrar els 20 JSON a Firestore ara</button>
+                    <div class="card-head">
+                        <div>
+                            <h3>📁 Gestor d'Arxius i Bancs de Preguntes a Firestore</h3>
+                            <p class="muted-sm">Pots substituir qualsevol tema pujant un <code>.json</code> des del teu PC, editar preguntes soltes o esborrar el banc del núvol.</p>
+                        </div>
+                        <div class="row-btns">
+                            <button class="btn-3d btn-gold btn-sm" onclick="ceoMigrateAllJson()">🚀 Sincronitzar 20 JSON locals</button>
+                            <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadBanksStatus()">🔄 Actualitzar Estat</button>
+                        </div>
+                    </div>
+                    <div id="ceo-banks-grid" class="banks-admin-grid"></div>
+                </div>
+
+                <!-- BLOC 2: CONTROL D'USUARIS I PERFILS DETALLATS -->
+                <div class="card-clean mb-3">
+                    <div class="card-head">
+                        <div>
+                            <h3>👥 CRM d'Usuaris, Invitacions, PRO i Banejats</h3>
+                            <p class="muted-sm">Inspecciona el perfil complet de cada opositor, quantes persones ha convidat, atorga PRO o bloqueja comptes.</p>
+                        </div>
+                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadUsers()">🔄 Recarregar Usuaris</button>
+                    </div>
+                    <input type="text" id="ceo-user-search" class="duo-input mb-2" placeholder="🔍 Filtrar usuari per correu, nom o UID..." oninput="ceoFilterUsers()">
+                    <div id="ceo-users-list" class="admin-list"></div>
                 </div>
 
                 <div class="ceo-grid">
-                    <!-- 1. Alerta Global -->
+                    <!-- Alerta Global -->
                     <div class="card-clean">
                         <h3>📢 Alerta Superior Web</h3>
                         <input type="text" id="ceo-alert-input" class="duo-input" placeholder="Missatge d'alerta...">
@@ -234,46 +298,25 @@
                         </div>
                     </div>
 
-                    <!-- 2. Esdeveniment Oficial en Viu (/mossos_events) -->
+                    <!-- Esdeveniment Oficial en Viu -->
                     <div class="card-clean">
-                        <h3>🔴 Llançar Simulacre en Viu</h3>
+                        <h3>🔴 Llançar Simulacre en Viu (30 preg · 35 min)</h3>
                         <input type="text" id="ceo-ev-title" class="duo-input" placeholder="Ex: Simulacre Oficial Diumenge">
-                        <input type="text" id="ceo-ev-desc" class="duo-input" placeholder="Ex: 35 preguntes · Temps real">
+                        <input type="text" id="ceo-ev-desc" class="duo-input" placeholder="Ex: 30 preguntes · 35 minuts · Temps real">
                         <div class="row-btns">
                             <button class="btn-3d btn-red" onclick="ceoSaveEvent()">Activar en Viu</button>
                             <button class="btn-3d btn-gray" onclick="ceoClearEvent()">Desactivar</button>
                         </div>
                     </div>
-
-                    <!-- 3. Afegir pregunta individual -->
-                    <div class="card-clean">
-                        <h3>➕ Crear Pregunta Extra</h3>
-                        <input type="text" id="ceo-q-text" class="duo-input" placeholder="Enunciat de la pregunta">
-                        <input type="text" id="ceo-q-opt1" class="duo-input" placeholder="Opció Correcta">
-                        <input type="text" id="ceo-q-opt2" class="duo-input" placeholder="Opció Incorrecta 1">
-                        <input type="text" id="ceo-q-opt3" class="duo-input" placeholder="Opció Incorrecta 2">
-                        <input type="text" id="ceo-q-opt4" class="duo-input" placeholder="Opció Incorrecta 3">
-                        <input type="text" id="ceo-q-exp" class="duo-input" placeholder="Explicació oficial">
-                        <button class="btn-3d btn-blue w-full" onclick="ceoCreateQuestion()">Guardar Pregunta</button>
-                    </div>
                 </div>
 
-                <!-- 4. Reportes d'errors -->
+                <!-- Reportes d'errors -->
                 <div class="card-clean mt-3">
                     <div class="card-head">
                         <h3>🚩 Errors Reportats pels Opositors</h3>
-                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadReports()">🔄</button>
+                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadReports()">🔄 Actualitzar</button>
                     </div>
                     <div id="ceo-reports-list" class="admin-list"></div>
-                </div>
-
-                <!-- 5. Gestió d'usuaris -->
-                <div class="card-clean mt-3">
-                    <div class="card-head">
-                        <h3>👥 Control d'Usuaris i PRO</h3>
-                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadUsers()">🔄</button>
-                    </div>
-                    <div id="ceo-users-list" class="admin-list"></div>
                 </div>
             </section>
 
@@ -285,7 +328,7 @@
                         <div id="quiz-progress-bar" class="duo-progress-fill"></div>
                     </div>
                     <span id="quiz-timer" class="timer-pill hidden">35:00</span>
-                    <span id="quiz-counter" class="counter-pill">1/20</span>
+                    <span id="quiz-counter" class="counter-pill">1/30</span>
                 </div>
 
                 <div class="quiz-body">
@@ -298,7 +341,7 @@
                     <div id="options-container" class="duo-options"></div>
                 </div>
 
-                <!-- Barra de correcció inferior animada -->
+                <!-- Barra de correcció inferior -->
                 <div id="quiz-bottom-bar" class="quiz-bottom-bar">
                     <div id="feedback-content" class="feedback-info hidden">
                         <strong id="feedback-title">✅ Correcte!</strong>
@@ -326,7 +369,7 @@
                         <div class="r-pill gray"><strong id="res-blank">0</strong><span>En blanc</span></div>
                     </div>
 
-                    <button class="btn-3d btn-navy w-full" onclick="switchTab('learn')">TORNAR AL MAPA</button>
+                    <button class="btn-3d btn-navy w-full" onclick="switchTab('learn')">TORNAR AL TAULER</button>
 
                     <div id="review-container" class="review-list"></div>
                 </div>
