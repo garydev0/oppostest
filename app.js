@@ -8,6 +8,49 @@ const CEO_EMAIL = "gerardlopezgarcia1@gmail.com";
 const EXAM_QUESTIONS_COUNT = 30; // 10 Àmbit A + 10 Àmbit B + 10 Àmbit C
 const EXAM_DURATION_SECONDS = 35 * 60; // 35 minuts
 
+// ==========================================
+// MOTOR D'EMOJIS D'IPHONE (APPLE iOS) PER A WINDOWS I ANDROID
+// ==========================================
+const IS_APPLE_NATIVE = /Mac|iPod|iPhone|iPad/.test(navigator.platform) || (/Mac|iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream);
+const FE0F_ICONS = new Set(['2764', '23f1', '2699', '2620', '1f6e1', '270d', '1f5d1', '26a0', '1f441']);
+let emojiObserver = null;
+
+function applyAppleEmojis(root = document.body) {
+    if (IS_APPLE_NATIVE || !window.twemoji || !root) return;
+    if (emojiObserver) emojiObserver.disconnect();
+    try {
+        window.twemoji.parse(root, {
+            className: 'apple-emoji',
+            callback: (icon) => {
+                const fileCode = FE0F_ICONS.has(icon) ? `${icon}-fe0f` : icon;
+                return `https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/${fileCode}.png`;
+            },
+            attributes: (rawText, iconId) => ({
+                loading: 'lazy',
+                onerror: `if(!this.dataset.retry){this.dataset.retry='1';this.src='https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/${iconId}-fe0f.png';}else{this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/${iconId}.svg';}`
+            })
+        });
+    } catch (e) {}
+    if (emojiObserver) {
+        emojiObserver.observe(document.body, { childList: true, subtree: true });
+    }
+}
+
+function initAppleEmojiEngine() {
+    if (IS_APPLE_NATIVE) return;
+    applyAppleEmojis(document.body);
+    let scheduled = false;
+    emojiObserver = new MutationObserver(() => {
+        if (scheduled) return;
+        scheduled = true;
+        requestAnimationFrame(() => {
+            scheduled = false;
+            applyAppleEmojis(document.body);
+        });
+    });
+    emojiObserver.observe(document.body, { childList: true, subtree: true });
+}
+
 // Configuració oficial del teu projecte Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyAK8r_-CMw1626LIFnrn9NcVkIcvYv2Elo",
@@ -55,7 +98,6 @@ const TOPICS = {
 };
 const ALL_FILES = [...TOPICS.A, ...TOPICS.B, ...TOPICS.C];
 
-// Curiositats oficials per a la targeta "SABIES QUE..."
 const CURIOSITIES = [
     "Abans de ser comissària en cap, Sílvia Catà era la cap de la Regió Policial de Girona, i va entrar al cos el 1998?",
     "El Cos de Mossos d'Esquadra és la força policial civil més antiga d'Europa en actiu, fundada el 1719 a Valls per Pere Anton Veciana?",
@@ -65,7 +107,6 @@ const CURIOSITIES = [
 ];
 let currentCuriosityIdx = 0;
 
-// Caché en memòria per velocitat instantània
 const questionCache = {};
 let allUsersCache = [];
 let currentUploadTargetCode = null;
@@ -73,7 +114,6 @@ let currentManagedTopicCode = null;
 let currentManagedQuestions = [];
 let recommendedTopicCode = 'a1';
 
-// Dades del Perfil i Estadístiques de l'opositor
 let userStats = JSON.parse(localStorage.getItem('oppostest_pro_stats')) || {
     displayName: 'Opositor',
     avatar: '👮‍♂️',
@@ -152,7 +192,7 @@ function selectQuestionsPrioritizingUnseen(pool, count) {
 }
 
 // ==========================================
-// PANTALLA DE CÀRREGA INICIAL (SPLASH SCREEN)
+// PANTALLA DE CÀRREGA INICIAL
 // ==========================================
 function updateSplashProgress(percent, text) {
     const bar = document.getElementById('splash-bar-fill');
@@ -235,9 +275,10 @@ function showModal({ icon = '💡', title, text, html = null, showInput = false,
 }
 
 // ==========================================
-// INICIALITZACIÓ (ESPERA TEMARI + NOTÍCIES 3CATINFO ABANS DE TREURE EL LOADER)
+// INICIALITZACIÓ (ESPERA TEMARI + NOTÍCIES 3CATINFO + EMOJIS iOS)
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
+    initAppleEmojiEngine();
     updateSplashProgress(15, 'Preparant tauler i estadístiques...');
     initFirebaseListeners();
     initKeyboardShortcuts();
@@ -259,7 +300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ==========================================
-// NOTÍCIES ESPECÍFIQUES DE 3CATINFO ARTICLE PER ARTICLE (API RSS OFICIAL CCMA)
+// NOTÍCIES ESPECÍFIQUES DE 3CATINFO ARTICLE PER ARTICLE
 // ==========================================
 function fetchWithTimeout(url, ms = 4200) {
     const controller = new AbortController();
@@ -294,10 +335,8 @@ function parseRssXmlItems(xmlText) {
 }
 
 async function fetch3CatArticlesFromSources() {
-    // URL oficial activa de l'API de notícies de portada de 3CatInfo / 324
     const officialRssUrl = "https://api.ccma.cat/noticies?_format=rss&origen=frontal&frontal=n324-portada-noticia&version=2.0";
 
-    // Memòria cau de sessió (10 minuts) perquè si recarregues sigui instantani
     const cached = sessionStorage.getItem('oppostest_3cat_news_v2');
     if (cached) {
         try {
@@ -308,7 +347,6 @@ async function fetch3CatArticlesFromSources() {
         } catch (e) {}
     }
 
-    // 1. Peticions simultànies en paral·lel (la primera que respon amb articles reals guanya)
     const viaRss2Json = async () => {
         const res = await fetchWithTimeout(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(officialRssUrl)}`);
         if (!res.ok) throw new Error("rss2json ko");
@@ -427,7 +465,7 @@ function scrollNewsCarousel(direction) {
 }
 
 // ==========================================
-// BENTO DASHBOARD (RANG, OBJECTIU D'AVUI, CURIOSITATS I PER QUÈ)
+// BENTO DASHBOARD
 // ==========================================
 function calculatePoliceRank(xp) {
     const ranks = [
@@ -734,7 +772,8 @@ function renderProfileView() {
     document.getElementById('profile-goal-input').value = userStats.goal || '';
 
     document.querySelectorAll('.avatar-opt').forEach(btn => {
-        btn.classList.toggle('selected', btn.textContent.trim() === (userStats.avatar || '👮‍♂️'));
+        const btnEmoji = btn.dataset.emoji || btn.querySelector('img')?.alt || btn.textContent.trim();
+        btn.classList.toggle('selected', btnEmoji === (userStats.avatar || '👮‍♂️'));
     });
 
     const scoresObj = userStats.topicScores || {};
@@ -759,7 +798,8 @@ function selectProfileAvatar(emoji) {
     userStats.avatar = emoji;
     document.getElementById('profile-big-avatar').textContent = emoji;
     document.querySelectorAll('.avatar-opt').forEach(btn => {
-        btn.classList.toggle('selected', btn.textContent.trim() === emoji);
+        const btnEmoji = btn.dataset.emoji || btn.querySelector('img')?.alt || btn.textContent.trim();
+        btn.classList.toggle('selected', btnEmoji === emoji);
     });
 }
 
@@ -1228,7 +1268,7 @@ function startCommunityFailures() {
 }
 
 // ==========================================
-// MOTOR DEL TEST + NAVEGADOR D'EXAMEN + COMPTADOR DIARI (100)
+// MOTOR DEL TEST + NAVEGADOR D'EXAMEN + COMPTADOR DIARI
 // ==========================================
 function initQuiz(mode, title, questions, timerSeconds = 0, topicCode = null, originTab = 'tab-learn') {
     clearInterval(quizState.timerInterval);
@@ -1395,6 +1435,7 @@ function renderQuestion() {
     q.options.forEach((opt, i) => {
         const btn = document.createElement('button');
         btn.className = 'duo-opt';
+        btn.dataset.optionValue = opt;
         if (quizState.mode === 'simulacre' && currentSimSelection === opt) {
             btn.classList.add('selected-sim');
         }
@@ -1452,8 +1493,8 @@ async function selectAnswer(selected, btn) {
 
     document.querySelectorAll('.duo-opt').forEach(b => {
         b.disabled = true;
-        const txt = b.querySelector('span:last-child').textContent.trim();
-        if (txt === q.correctAnswer.trim()) b.classList.add('correct');
+        const optVal = (b.dataset.optionValue || b.querySelector('span:last-child').textContent).trim();
+        if (optVal === q.correctAnswer.trim()) b.classList.add('correct');
     });
     if (!isCorrect) btn.classList.add('wrong');
 
@@ -2123,7 +2164,7 @@ async function ceoDeleteReport(id) {
 }
 
 // ==========================================
-// NAVEGACIÓ ESTRICTA ENTRE PESTANYES (INICI i TEMARI SEPARATS)
+// NAVEGACIÓ ESTRICTA ENTRE PESTANYES
 // ==========================================
 function switchTab(tab) {
     clearInterval(quizState.timerInterval);
@@ -2179,6 +2220,6 @@ Object.assign(window, {
     ceoDeleteBank, ceoDownloadBackup, openTopicManager, closeTopicManager,
     filterTopicQuestions, deleteSingleQuestionFromTopic, openAddQuestionToCurrentTopic,
     ceoSaveAlert, ceoClearAlert, ceoSaveEvent, ceoClearEvent, ceoLoadReports,
-    ceoDeleteReport, ceoLoadUsers, ceoFilterUsers, ceoInspectUser, ceoTogglePro,
-    ceoToggleBan, ceoDeleteUserAccount
+    ceoDeleteReport, ceoLoadUsers, ceoFilterUsers, ceoInspectUser,
+    ceoTogglePro, ceoToggleBan, ceoDeleteUserAccount
 });
