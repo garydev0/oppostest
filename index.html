@@ -29,11 +29,15 @@
     }
     </script>
 
+    <!-- Tipografia estil iOS (SF Pro / Plus Jakarta Sans) + Motor d'Emojis d'Apple per a Windows -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- PANTALLA DE CÀRREGA INICIAL (Espera Temari + Notícies 3CatInfo) -->
+    <!-- PANTALLA DE CÀRREGA INICIAL -->
     <div id="splash-screen" class="splash-overlay">
         <div class="splash-box">
             <img src="logo.png" alt="Oppostest Logo" class="splash-logo" onerror="this.style.display='none'">
@@ -150,7 +154,7 @@
 
         <!-- ZONA PRINCIPAL -->
         <main class="duo-main">
-            <!-- Barra superior -->
+            <!-- Barra superior amb estil iOS Glass -->
             <header class="duo-topbar">
                 <div class="top-stat" title="Ratxa de dies seguits entrenant">
                     <span>🔥</span> <strong id="ui-daily-streak">0</strong> <small class="hide-sm">dies</small>
@@ -171,11 +175,8 @@
                 </div>
             </header>
 
-            <!-- ==========================================
-                 VISTA 1: PESTANYA INICI (Tauler + 3CatInfo)
-                 ========================================== -->
+            <!-- VISTA 1: PESTANYA INICI -->
             <section id="view-learn" class="content-view">
-                <!-- Esdeveniment Oficial en Viu -->
                 <div id="live-event-banner" class="live-event-card hidden">
                     <div class="live-info">
                         <span class="live-tag">🔴 ESDEVENIMENT OFICIAL EN VIU</span>
@@ -187,7 +188,6 @@
 
                 <!-- BENTO GRID SUPERIOR -->
                 <div class="mq-bento-grid">
-                    <!-- Targeta gran esquerra: AVUI ET PROPOSEM -->
                     <div class="mq-hero-card">
                         <div>
                             <span id="mq-prop-code" class="mq-overline">AVUI ET PROPOSEM · TEMA A1</span>
@@ -200,7 +200,6 @@
                         </div>
                     </div>
 
-                    <!-- Columna central: RANG + OBJECTIU D'AVUI -->
                     <div class="mq-col-stack">
                         <div class="mq-stat-card">
                             <div class="mq-card-tag"><span class="badge-pink">✪</span> RANG POLICIAL</div>
@@ -217,7 +216,6 @@
                         </div>
                     </div>
 
-                    <!-- Columna dreta: EL MEU PROGRÉS + ÚLTIMA ACTIVITAT -->
                     <div class="mq-col-stack">
                         <div class="mq-stat-card" onclick="switchTab('temari')" style="cursor:pointer;">
                             <div class="mq-card-tag">📈 EL MEU PROGRÉS</div>
@@ -234,7 +232,7 @@
                     </div>
                 </div>
 
-                <!-- BANNER RÀNQUING SETMANAL AMB PODI -->
+                <!-- BANNER RÀNQUING SETMANAL -->
                 <div class="mq-ranking-banner" onclick="switchTab('ranking')">
                     <div class="mq-rank-left">
                         <span class="mq-yellow-tag">🏆 RÀNQUING SETMANAL</span>
@@ -305,7 +303,7 @@
                     </div>
                 </div>
 
-                <!-- CARRUSEL D'ACTUALITAT 3CATINFO (Notícies específiques article per article) -->
+                <!-- CARRUSEL D'ACTUALITAT 3CATINFO -->
                 <div class="mq-news-section">
                     <div class="mq-news-header">
                         <div class="mq-news-title-group">
@@ -323,9 +321,7 @@
                 </div>
             </section>
 
-            <!-- ==========================================
-                 VISTA 2: PESTANYA TEMARI (Separada d'Inici)
-                 ========================================== -->
+            <!-- VISTA 2: PESTANYA TEMARI (Separada d'Inici) -->
             <section id="view-temari" class="content-view hidden">
                 <div class="temari-top-card">
                     <div>
@@ -341,7 +337,6 @@
                     </div>
                 </div>
 
-                <!-- Bloc Àmbit A -->
                 <div id="temari-block-A">
                     <div class="unit-banner unit-a">
                         <div>
@@ -353,7 +348,6 @@
                     <div id="nodes-A" class="topics-clean-grid"></div>
                 </div>
 
-                <!-- Bloc Àmbit B -->
                 <div id="temari-block-B">
                     <div class="unit-banner unit-b">
                         <div>
@@ -365,7 +359,6 @@
                     <div id="nodes-B" class="topics-clean-grid"></div>
                 </div>
 
-                <!-- Bloc Àmbit C -->
                 <div id="temari-block-C">
                     <div class="unit-banner unit-c">
                         <div>
@@ -404,7 +397,7 @@
                 </div>
             </section>
 
-            <!-- VISTA 4: CENTRE DE REPÀS (ERRORS I GUARDADES AMB ESTRELLA) -->
+            <!-- VISTA 4: CENTRE DE REPÀS -->
             <section id="view-errors-hub" class="content-view hidden">
                 <div class="profile-grid">
                     <div class="card-clean">
@@ -469,14 +462,14 @@
 
                         <label class="form-label">Tria la teva insígnia / avatar:</label>
                         <div id="avatar-selector" class="avatar-picker">
-                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('👮‍♂️')">👮‍♂️</button>
-                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('👮‍♀️')">👮‍♀️</button>
-                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('🚓')">🚓</button>
-                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('🛡️')">🛡️</button>
-                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('🎯')">🎯</button>
-                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('🔥')">🔥</button>
-                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('⚡')">⚡</button>
-                            <button type="button" class="avatar-opt" onclick="selectProfileAvatar('🦁')">🦁</button>
+                            <button type="button" class="avatar-opt" data-emoji="👮‍♂️" onclick="selectProfileAvatar('👮‍♂️')">👮‍♂️</button>
+                            <button type="button" class="avatar-opt" data-emoji="👮‍♀️" onclick="selectProfileAvatar('👮‍♀️')">👮‍♀️</button>
+                            <button type="button" class="avatar-opt" data-emoji="🚓" onclick="selectProfileAvatar('🚓')">🚓</button>
+                            <button type="button" class="avatar-opt" data-emoji="🛡️" onclick="selectProfileAvatar('🛡️')">🛡️</button>
+                            <button type="button" class="avatar-opt" data-emoji="🎯" onclick="selectProfileAvatar('🎯')">🎯</button>
+                            <button type="button" class="avatar-opt" data-emoji="🔥" onclick="selectProfileAvatar('🔥')">🔥</button>
+                            <button type="button" class="avatar-opt" data-emoji="⚡" onclick="selectProfileAvatar('⚡')">⚡</button>
+                            <button type="button" class="avatar-opt" data-emoji="🦁" onclick="selectProfileAvatar('🦁')">🦁</button>
                         </div>
 
                         <label class="form-label mt-2">Nom públic / Àlies (visible a la Lliga):</label>
@@ -543,7 +536,6 @@
                     <span class="ceo-badge">gerardlopezgarcia1@gmail.com</span>
                 </div>
 
-                <!-- BLOC 1: GESTOR D'ARXIUS I BANCS DE PREGUNTES A FIRESTORE -->
                 <div class="card-clean mb-3 border-gold">
                     <div class="card-head">
                         <div>
@@ -557,7 +549,6 @@
                     <div id="ceo-banks-grid" class="banks-admin-grid"></div>
                 </div>
 
-                <!-- BLOC 2: CONTROL D'USUARIS I PERFILS DETALLATS -->
                 <div class="card-clean mb-3">
                     <div class="card-head">
                         <div>
@@ -611,7 +602,6 @@
                     <span id="quiz-counter" class="counter-pill">1/30</span>
                 </div>
 
-                <!-- NAVEGADOR DE PREGUNTES 1-30 (Per a Simulacres / Mode Examen) -->
                 <div id="simulacre-nav-panel" class="simulacre-nav-panel hidden">
                     <div class="sim-nav-header">
                         <span><strong>Full de Respostes (Clica per saltar de pregunta):</strong></span>
@@ -637,14 +627,12 @@
                     <div id="options-container" class="duo-options"></div>
                 </div>
 
-                <!-- Barra inferior -->
                 <div id="quiz-bottom-bar" class="quiz-bottom-bar">
                     <div id="feedback-content" class="feedback-info hidden">
                         <strong id="feedback-title">✅ Correcte!</strong>
                         <p id="feedback-explanation"></p>
                     </div>
 
-                    <!-- Controls de navegació lliure per a Simulacre -->
                     <div id="simulacre-controls" class="simulacre-controls hidden">
                         <button id="btn-prev-q" class="btn-3d btn-gray" onclick="prevQuestion()">← Anterior</button>
                         <button id="btn-doubt-q" class="btn-3d btn-gold" onclick="toggleDoubtCurrent()">❓ Dubte</button>
@@ -653,7 +641,6 @@
                         <button id="btn-finish-sim" class="btn-3d btn-green" onclick="confirmFinishSimulacre()">✅ Entregar Examen</button>
                     </div>
 
-                    <!-- Controls clàssics per a Mode Estudi / Supervivència -->
                     <div id="study-controls" class="quiz-actions">
                         <button id="btn-next" class="btn-3d btn-green hidden" onclick="nextQuestion()">CONTINUAR (Enter)</button>
                     </div>
