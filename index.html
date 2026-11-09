@@ -81,7 +81,7 @@
         </div>
     </div>
 
-    <!-- MODAL CEO: GESTOR DE PREGUNTES DEL TEMA (Sense emojis pesats) -->
+    <!-- MODAL CEO: GESTOR DE PREGUNTES -->
     <div id="ceo-topic-modal" class="modal-overlay hidden no-apple-emoji">
         <div class="modal-card modal-wide">
             <div class="card-head">
@@ -96,7 +96,6 @@
         </div>
     </div>
 
-    <!-- Inputs ocults per pujar 1 o diversos JSON alhora -->
     <input type="file" id="ceo-file-uploader" accept=".json" class="hidden" onchange="handleJsonFileUpload(event)">
     <input type="file" id="ceo-bulk-uploader" accept=".json" multiple class="hidden" onchange="handleBulkJsonUpload(event)">
 
@@ -181,9 +180,7 @@
                 </div>
             </header>
 
-            <!-- ==========================================
-                 VISTA 1: INICI
-                 ========================================== -->
+            <!-- VISTA 1: INICI -->
             <section id="view-learn" class="content-view">
                 <div id="live-event-banner" class="live-event-card hidden">
                     <div>
@@ -195,10 +192,9 @@
                 </div>
 
                 <div class="duo-home-grid">
-                    <!-- Targeta Esquerra: Següent Tema + Anell -->
                     <div class="duo-path-card">
                         <div class="path-card-top">
-                            <span id="home-rank-pill" class="rank-chip">🎖️ Aspirant</span>
+                            <span id="home-rank-pill" class="rank-chip">🔰 Aspirant</span>
                             <span id="home-shield-pill" class="shield-chip">🛡️ 0 escuts</span>
                         </div>
 
@@ -227,7 +223,6 @@
                         </div>
                     </div>
 
-                    <!-- Targeta Dreta: 3 Missions Diàries + Cofre -->
                     <div class="duo-missions-card">
                         <div class="missions-head">
                             <h3>🎯 Missions d'Avui</h3>
@@ -264,7 +259,6 @@
                     </div>
                 </div>
 
-                <!-- 4 BOTONS CURTS -->
                 <div class="quick-modes">
                     <button class="btn-3d btn-red mode-big" onclick="switchTab('simulacre')">
                         <span class="big-icon">⏱️</span>
@@ -296,7 +290,6 @@
                     </button>
                 </div>
 
-                <!-- CARRUSEL D'ACTUALITAT 3CATINFO -->
                 <div class="mq-news-section">
                     <div class="mq-news-header">
                         <div class="mq-news-title-group">
@@ -314,9 +307,7 @@
                 </div>
             </section>
 
-            <!-- ==========================================
-                 VISTA 2: PESTANYA TEMARI
-                 ========================================== -->
+            <!-- VISTA 2: TEMARI -->
             <section id="view-temari" class="content-view hidden">
                 <div class="temari-filter-bar">
                     <button id="flt-ALL" class="btn-3d btn-blue btn-sm" onclick="filterTemariAmbit('ALL')">Tots (20)</button>
@@ -350,9 +341,7 @@
                 </div>
             </section>
 
-            <!-- ==========================================
-                 VISTA 3: SIMULACRE
-                 ========================================== -->
+            <!-- VISTA 3: SIMULACRE -->
             <section id="view-simulacre-hub" class="content-view hidden">
                 <div class="profile-grid">
                     <div class="card-clean center-card">
@@ -376,16 +365,14 @@
                 </div>
             </section>
 
-            <!-- ==========================================
-                 VISTA 4: REPÀS
-                 ========================================== -->
+            <!-- VISTA 4: REPÀS (Amb Doble Verificació 2 encerts) -->
             <section id="view-errors-hub" class="content-view hidden">
                 <div class="profile-grid">
                     <div class="card-clean center-card">
                         <div class="hub-big-emoji">🧠</div>
                         <h2 id="errors-hub-title">0 Errors</h2>
                         <div class="mt-2 mb-3">
-                            <span class="tag-pill">❤️ +1 vida per cada encert</span>
+                            <span class="tag-pill">❤️ +1 vida · 2 encerts per netejar</span>
                         </div>
                         <button id="btn-start-errors-now" class="btn-3d btn-blue w-full" onclick="launchErrorsQuiz()">Repassar</button>
                     </div>
@@ -401,15 +388,13 @@
                 </div>
             </section>
 
-            <!-- ==========================================
-                 VISTA 5: LLIGA SETMANAL
-                 ========================================== -->
+            <!-- VISTA 5: LLIGA SETMANAL (Amb Perfils Públics clicables) -->
             <section id="view-ranking" class="content-view hidden">
                 <div class="league-header-card">
                     <div class="league-badge-box">
-                        <span id="league-div-icon" class="league-icon">🛡️</span>
+                        <span id="league-div-icon" class="league-icon">🔰</span>
                         <div>
-                            <span class="unit-tag">LLIGA SETMANAL</span>
+                            <span class="unit-tag">LLIGA SETMANAL · TOCA UN PERFIL PER INSPECCIONAR</span>
                             <h2 id="league-div-name">Divisió Aspirant</h2>
                         </div>
                     </div>
@@ -440,9 +425,7 @@
                 </div>
             </section>
 
-            <!-- ==========================================
-                 VISTA 6: PERFIL
-                 ========================================== -->
+            <!-- VISTA 6: PERFIL + VITRINA DE 8 MEDALLES -->
             <section id="view-profile" class="content-view hidden">
                 <div class="profile-grid">
                     <div class="card-clean">
@@ -509,11 +492,18 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- VITRINA DE 8 MEDALLES / ASSOLIMENTS -->
+                <div class="card-clean mt-3">
+                    <div class="card-head">
+                        <h3>🏅 Medalles i Assoliments</h3>
+                        <span id="prof-medals-count" class="tag-pill">0 / 8</span>
+                    </div>
+                    <div id="profile-medals-grid" class="medals-grid"></div>
+                </div>
             </section>
 
-            <!-- ==========================================
-                 VISTA 7: PANEL CEO (100% Utilitari, Sense Emojis d'Apple)
-                 ========================================== -->
+            <!-- VISTA 7: PANEL CEO -->
             <section id="view-ceo" class="content-view hidden no-apple-emoji">
                 <div class="ceo-header">
                     <h2>Panel de Control CEO</h2>
@@ -524,16 +514,14 @@
                     </div>
                 </div>
 
-                <!-- EINA 1: CERCADOR GLOBAL DE PREGUNTES EN ELS 20 TEMES -->
                 <div class="card-clean mb-3">
                     <div class="card-head">
                         <h3>Buscador Global de Preguntas (20 Temas)</h3>
                     </div>
-                    <input type="text" id="ceo-global-q-search" class="duo-input" placeholder="Escribe cualquier palabra para buscar una pregunta en todos los temas a la vez..." oninput="ceoSearchAllQuestions()">
+                    <input type="text" id="ceo-global-q-search" class="duo-input" placeholder="Escribe cualquier palabra para buscar en los 20 temas..." oninput="ceoSearchAllQuestions()">
                     <div id="ceo-global-q-results" class="admin-list mt-2"></div>
                 </div>
 
-                <!-- EINA 2: TAULA COMPACTA DE BANCS A FIRESTORE -->
                 <div class="card-clean mb-3 border-gold">
                     <div class="card-head">
                         <h3>Bancos de Preguntas en Firestore (A1 - C5)</h3>
@@ -541,7 +529,6 @@
                     <div id="ceo-banks-grid" class="ceo-table-list"></div>
                 </div>
 
-                <!-- EINA 3: REPORTS D'ERRORS -->
                 <div class="card-clean mb-3">
                     <div class="card-head">
                         <h3>Reportes de Preguntas</h3>
@@ -550,7 +537,6 @@
                     <div id="ceo-reports-list" class="admin-list"></div>
                 </div>
 
-                <!-- EINA 4: GESTIÓ D'USUARIS -->
                 <div class="card-clean mb-3">
                     <div class="card-head">
                         <h3>Usuarios Registrados</h3>
@@ -582,9 +568,7 @@
                 </div>
             </section>
 
-            <!-- ==========================================
-                 VISTA 8: PANTALLA DE TEST
-                 ========================================== -->
+            <!-- VISTA 8: PANTALLA DE TEST -->
             <section id="view-quiz" class="content-view hidden">
                 <div class="quiz-header">
                     <button class="btn-icon" onclick="confirmExitQuiz()">✕</button>
@@ -632,9 +616,7 @@
                 </div>
             </section>
 
-            <!-- ==========================================
-                 VISTA 9: RESULTATS
-                 ========================================== -->
+            <!-- VISTA 9: RESULTATS (Amb Velocímetre i Botó Reptar Amic) -->
             <section id="view-results" class="content-view hidden">
                 <div class="results-box">
                     <h2 id="res-mode-title" class="mb-2">Resultat</h2>
@@ -643,13 +625,20 @@
                         <small>NOTA</small>
                     </div>
 
-                    <div class="res-pills">
+                    <!-- Banner de resultat si estaves jugant un Repte d'un amic -->
+                    <div id="duel-outcome-banner" class="zone-divider zone-up mb-2 hidden"></div>
+
+                    <div class="res-pills res-pills-4">
                         <div class="r-pill green"><strong id="res-ok">0</strong><span>Encerts</span></div>
                         <div class="r-pill red"><strong id="res-ko">0</strong><span>Errades</span></div>
                         <div class="r-pill gray"><strong id="res-blank">0</strong><span>En blanc</span></div>
+                        <div class="r-pill"><strong id="res-speed">0s</strong><span>Velocitat</span></div>
                     </div>
 
-                    <button class="btn-3d btn-blue w-full" onclick="returnAfterResults()">Continuar</button>
+                    <div class="row-btns">
+                        <button class="btn-3d btn-gold" style="flex:1;" onclick="shareDuelChallenge()">⚔️ Reptar Amic</button>
+                        <button class="btn-3d btn-blue" style="flex:1;" onclick="returnAfterResults()">Continuar</button>
+                    </div>
 
                     <div id="review-container" class="review-list"></div>
                 </div>
