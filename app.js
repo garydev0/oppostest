@@ -8,26 +8,45 @@ const EXAM_DURATION_SECONDS = 35 * 60;
 const MAX_LIVES = 5;
 
 // ==========================================
-// 1. MOTOR D'EMOJIS D'IPHONE (APPLE iOS) PER A WINDOWS
+// 1. MOTOR D'EMOJIS D'IPHONE (EXCLOENT EL PANEL CEO + ZERO ICONES TRENCADES)
 // ==========================================
 const IS_APPLE_NATIVE = /Mac|iPod|iPhone|iPad/.test(navigator.platform) || (/Mac|iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream);
-const FE0F_ICONS = new Set(['2764', '23f1', '2699', '2620', '1f6e1', '270d', '1f5d1', '26a0', '1f441']);
 let emojiObserver = null;
 
-function applyAppleEmojis(root = document.body) {
-    if (IS_APPLE_NATIVE || !window.twemoji || !root) return;
+// Captura global d'errors d'imatge per assegurar que MAI surti cap icona trencada
+window.addEventListener('error', (e) => {
+    const img = e.target;
+    if (!img || img.tagName !== 'IMG' || !img.classList.contains('apple-emoji')) return;
+
+    const currentSrc = img.getAttribute('src') || '';
+    if (!img.dataset.step) {
+        img.dataset.step = '1';
+        // Pas 1: Prova la variant amb selector -fe0f d'Apple
+        img.src = currentSrc.replace(/\.png$/, '-fe0f.png');
+    } else if (img.dataset.step === '1') {
+        img.dataset.step = '2';
+        // Pas 2: Si tampoc existeix amb -fe0f, restaura el caràcter original net sense trencar res
+        const textNode = document.createTextNode(img.alt || '');
+        img.replaceWith(textNode);
+    }
+}, true);
+
+function parseNodeWithAppleEmojis(node) {
+    if (!node || !window.twemoji) return;
+    if (node.closest && node.closest('.no-apple-emoji')) return;
+    window.twemoji.parse(node, {
+        className: 'apple-emoji',
+        callback: (icon) => `https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/${icon}.png`
+    });
+}
+
+function applyAppleEmojis() {
+    if (IS_APPLE_NATIVE || !window.twemoji) return;
     if (emojiObserver) emojiObserver.disconnect();
     try {
-        window.twemoji.parse(root, {
-            className: 'apple-emoji',
-            callback: (icon) => {
-                const fileCode = FE0F_ICONS.has(icon) ? `${icon}-fe0f` : icon;
-                return `https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/${fileCode}.png`;
-            },
-            attributes: (rawText, iconId) => ({
-                loading: 'lazy',
-                onerror: `if(!this.dataset.retry){this.dataset.retry='1';this.src='https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/${iconId}-fe0f.png';}else{this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/${iconId}.svg';}`
-            })
+        // Parseja totes les seccions de l'usuari EXCEPTE el Panel CEO (.no-apple-emoji)
+        document.querySelectorAll('.duo-sidebar, .duo-topbar, #view-learn, #view-temari, #view-simulacre-hub, #view-errors-hub, #view-ranking, #view-profile, #view-quiz, #view-results, #ios-reward-overlay, #modal-overlay, #toast-container').forEach(el => {
+            parseNodeWithAppleEmojis(el);
         });
     } catch (e) {}
     if (emojiObserver) {
@@ -37,25 +56,23 @@ function applyAppleEmojis(root = document.body) {
 
 function initAppleEmojiEngine() {
     if (IS_APPLE_NATIVE) return;
-    applyAppleEmojiEngineObserver();
-}
-
-function applyAppleEmojiEngineObserver() {
-    applyAppleEmojis(document.body);
+    applyAppleEmojis();
     let scheduled = false;
-    emojiObserver = new MutationObserver(() => {
-        if (scheduled) return;
+    emojiObserver = new MutationObserver((mutations) => {
+        // Ignora canvis dins del Panel CEO perquè sigui 100% instantani i estable
+        const onlyCeo = mutations.every(m => m.target.closest && m.target.closest('.no-apple-emoji'));
+        if (onlyCeo || scheduled) return;
         scheduled = true;
         requestAnimationFrame(() => {
             scheduled = false;
-            applyAppleEmojis(document.body);
+            applyAppleEmojis();
         });
     });
     emojiObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 // ==========================================
-// 2. SINTETITZADOR D'ÀUDIO ESTIL iOS (SENSE MP3)
+// 2. SINTETITZADOR D'ÀUDIO ESTIL iOS
 // ==========================================
 let audioCtx = null;
 
@@ -71,12 +88,11 @@ function playIosSound(type = 'correct') {
         const now = audioCtx.currentTime;
 
         if (type === 'correct') {
-            // Doble to cristal·lí ascendent estil Apple Pay
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(587.33, now);        // D5
-            osc.frequency.setValueAtTime(880, now + 0.085);   // A5
+            osc.frequency.setValueAtTime(587.33, now);
+            osc.frequency.setValueAtTime(880, now + 0.085);
             gain.gain.setValueAtTime(0.11, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
             osc.connect(gain);
@@ -84,7 +100,6 @@ function playIosSound(type = 'correct') {
             osc.start(now);
             osc.stop(now + 0.33);
         } else if (type === 'wrong') {
-            // Toc greu curt i subtil estil vibració iOS
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = 'triangle';
@@ -97,7 +112,6 @@ function playIosSound(type = 'correct') {
             osc.start(now);
             osc.stop(now + 0.19);
         } else if (type === 'reward') {
-            // Acord de campana suau per a cofres, ratxa i ascensos
             [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
@@ -178,7 +192,7 @@ let recommendedTopicCode = 'a1';
 
 let userStats = JSON.parse(localStorage.getItem('oppostest_pro_stats')) || {
     displayName: 'Opositor',
-    avatar: '👮‍♂️',
+    avatar: '👮',
     goal: 'Promoció Mossos d\'Esquadra',
     xp: 0,
     lives: MAX_LIVES,
@@ -207,6 +221,7 @@ let userStats = JSON.parse(localStorage.getItem('oppostest_pro_stats')) || {
 if (typeof userStats.lives !== 'number') userStats.lives = MAX_LIVES;
 if (typeof userStats.shields !== 'number') userStats.shields = 1;
 if (typeof userStats.soundEnabled !== 'boolean') userStats.soundEnabled = true;
+if (userStats.avatar === '👮‍♂️' || userStats.avatar === '👮‍♀️') userStats.avatar = '👮';
 if (!Array.isArray(userStats.seenQuestions)) userStats.seenQuestions = [];
 if (!Array.isArray(userStats.failedQuestions)) userStats.failedQuestions = [];
 if (!Array.isArray(userStats.savedQuestions)) userStats.savedQuestions = [];
@@ -285,7 +300,6 @@ function triggerIosRewardPopup({ badge = 'ASSOLIMENT', icon = '🔥', title, rol
     };
 }
 
-// POP-UP 1: Benvinguda i Ratxa Diària amb calendari setmanal
 function showDailyStreakPopup() {
     const days = ['Dl', 'Dt', 'Dc', 'Dj', 'Dv', 'Ds', 'Dg'];
     const todayIdx = (new Date().getDay() + 6) % 7;
@@ -303,9 +317,7 @@ function showDailyStreakPopup() {
     });
 }
 
-// POP-UP 2: Cofre de Missió Completada
 function claimDailyChest() {
-    const today = getTodayStr();
     checkResetTodayCounters();
     if (userStats.todayChestClaimed) {
         showToast('Ja has obert el cofre d\'avui!', 'info');
@@ -333,17 +345,16 @@ function claimDailyChest() {
         rollingTarget: 100,
         rollingPrefix: '+',
         rollingSuffix: ' XP ⚡',
-        html: 'Has guanyat <b>+1 Escut Protector de Ratxa 🛡️</b> i hem recarregat les teves <b>5 vides ❤️</b>.',
+        html: 'Has guanyat <b>+1 Escut de Ratxa</b> i hem recarregat les teves <b>5 vides ❤️</b>.',
         primaryText: 'Genial!'
     });
 }
 
-// POP-UP 5: Alerta de 0 Vides (o consulta de vides)
 function openLivesModal() {
     if (isUserPro()) {
         triggerIosRewardPopup({
             badge: 'OPPOSTEST PRO',
-            icon: '♾️',
+            icon: '💎',
             title: 'Vides Infinites Actives',
             html: 'Tens el mode PRO actiu: pots entrenar sense límit d\'errors.',
             primaryText: 'Continuar'
@@ -395,10 +406,10 @@ function selectQuestionsPrioritizingUnseen(pool, count) {
 
 function calculatePoliceRank(xp) {
     const ranks = [
-        { name: 'Aspirant', icon: '🛡️', min: 0, next: 500 },
+        { name: 'Aspirant', icon: '🔰', min: 0, next: 500 },
         { name: 'Alumne ISPC', icon: '📘', min: 500, next: 1500 },
-        { name: 'Mosso/a', icon: '👮‍♂️', min: 1500, next: 3500 },
-        { name: 'Caporal/a', icon: '🎖️', min: 3500, next: 7000 },
+        { name: 'Mosso/a', icon: '👮', min: 1500, next: 3500 },
+        { name: 'Caporal/a', icon: '🏅', min: 3500, next: 7000 },
         { name: 'Sergent/a', icon: '⭐', min: 7000, next: 12000 },
         { name: 'Sotsinspector/a', icon: '🌟', min: 12000, next: 20000 },
         { name: 'Inspector/a', icon: '🦅', min: 20000, next: 35000 },
@@ -669,7 +680,6 @@ function updateHomeDashboard() {
     const seenInTopic = topicQs.filter(q => seenSet.has(getQuestionKey(q))).length;
     const pctSeen = topicQs.length > 0 ? Math.round((seenInTopic / topicQs.length) * 100) : 0;
 
-    // Anell Apple Fitness (Circumferència = 264)
     const offset = 264 - (264 * pctSeen) / 100;
     const ringEl = document.getElementById('home-ring-fill');
     if (ringEl) ringEl.style.strokeDashoffset = offset;
@@ -683,9 +693,8 @@ function updateHomeDashboard() {
 
     const rInfo = calculatePoliceRank(userStats.xp || 0);
     document.getElementById('home-rank-pill').textContent = `${rInfo.icon} ${rInfo.name}`;
-    document.getElementById('home-shield-pill').textContent = `🛡️ ${userStats.shields || 0} escuts`;
+    document.getElementById('home-shield-pill').textContent = `🔰 ${userStats.shields || 0} escuts`;
 
-    // 3 Missions Diàries
     const qDone = Math.min(25, userStats.todayQuestionsCount || 0);
     const eDone = Math.min(3, userStats.todayErrorsFixed || 0);
     const gDone = Math.min(1, userStats.todayHighGradeDone || 0);
@@ -822,7 +831,7 @@ function recordDailyStudy() {
         userStats.dailyStreak = (userStats.dailyStreak || 0) + 1;
     } else if ((userStats.dailyStreak || 0) > 0 && (userStats.shields || 0) > 0) {
         userStats.shields--;
-        showToast('🛡️ Escut utilitzat! Has salvat la teva ratxa diària.', 'success');
+        showToast('🔰 Escut utilitzat! Has salvat la teva ratxa diària.', 'success');
     } else {
         userStats.dailyStreak = 1;
     }
@@ -834,11 +843,11 @@ function updateStatsUI() {
     document.getElementById('ui-best-survival').textContent = userStats.bestStreak || 0;
     document.getElementById('ui-xp').textContent = userStats.xp || 0;
     document.getElementById('ui-lives').textContent = isUserPro() ? '∞' : userStats.lives;
-    document.getElementById('btn-sound-toggle').textContent = userStats.soundEnabled ? '🔊' : '🔇';
+    document.getElementById('btn-sound-toggle').textContent = userStats.soundEnabled ? '🔔' : '🔕';
 
     const errCount = (userStats.failedQuestions || []).length;
     document.getElementById('sidebar-error-count').textContent = errCount;
-    document.getElementById('ui-user-avatar').textContent = userStats.avatar || '👮‍♂️';
+    document.getElementById('ui-user-avatar').textContent = userStats.avatar || '👮';
     document.getElementById('ui-user-name').textContent = userStats.displayName || 'Convidat';
 
     const proBadge = document.getElementById('ui-pro-badge');
@@ -866,7 +875,7 @@ async function saveStats() {
             await setDoc(doc(db, "users", currentUser.uid), {
                 email: currentUser.email,
                 displayName: userStats.displayName || currentUser.displayName || currentUser.email.split('@')[0],
-                avatar: userStats.avatar || '👮‍♂️',
+                avatar: userStats.avatar || '👮',
                 goal: userStats.goal || '',
                 xp: userStats.xp,
                 lives: userStats.lives,
@@ -903,7 +912,7 @@ function calcAmbitAverage(codesArray) {
 }
 
 function renderProfileView() {
-    document.getElementById('profile-big-avatar').textContent = userStats.avatar || '👮‍♂️';
+    document.getElementById('profile-big-avatar').textContent = userStats.avatar || '👮';
     document.getElementById('profile-display-title').textContent = userStats.displayName || 'Opositor';
     document.getElementById('profile-email-subtitle').textContent = currentUser ? currentUser.email : 'Convidat';
 
@@ -912,7 +921,7 @@ function renderProfileView() {
 
     document.querySelectorAll('.avatar-opt').forEach(btn => {
         const btnEmoji = btn.dataset.emoji || btn.querySelector('img')?.alt || btn.textContent.trim();
-        btn.classList.toggle('selected', btnEmoji === (userStats.avatar || '👮‍♂️'));
+        btn.classList.toggle('selected', btnEmoji === (userStats.avatar || '👮'));
     });
 
     const scoresObj = userStats.topicScores || {};
@@ -1007,7 +1016,7 @@ function initFirebaseListeners() {
                 }
 
                 userStats.displayName = data.displayName || user.displayName || user.email.split('@')[0];
-                userStats.avatar = data.avatar || userStats.avatar || '👮‍♂️';
+                userStats.avatar = (data.avatar === '👮‍♂️' || data.avatar === '👮‍♀️') ? '👮' : (data.avatar || userStats.avatar || '👮');
                 userStats.goal = data.goal || userStats.goal;
                 userStats.xp = Math.max(userStats.xp, data.xp || 0);
                 userStats.lives = data.lives ?? userStats.lives;
@@ -1076,7 +1085,7 @@ function openProModal() {
             badge: 'SUBSCRIPCIÓ ACTIVA',
             icon: '💎',
             title: 'Ets Usuari PRO!',
-            html: 'Tens Vides Infinites ♾️, Simulacres il·limitats i Top Fallades.',
+            html: 'Tens Vides Infinites, Simulacres il·limitats i Top Fallades.',
             primaryText: 'Genial!'
         });
         return;
@@ -1085,7 +1094,7 @@ function openProModal() {
         badge: 'OPPOSTEST PRO',
         icon: '💎',
         title: 'Desbloqueja PRO Gratis',
-        html: 'Convida <b>3 amics</b> a la pestanya Lliga i aconsegueix <b>Vides Infinites ♾️</b> i Simulacres il·limitats.',
+        html: 'Convida <b>3 amics</b> a la pestanya Lliga i aconsegueix <b>Vides Infinites</b> i Simulacres il·limitats.',
         primaryText: 'Convidar Amics',
         secondaryText: 'Tancar',
         onPrimary: () => switchTab('ranking')
@@ -1743,7 +1752,6 @@ function finishQuiz() {
         if (userStats.simulacreHistory.length > 20) userStats.simulacreHistory.pop();
     }
 
-    // POP-UP 4: Test Perfecte (10/10)
     if (quizState.mode !== 'survival' && total >= 5 && quizState.wrong === 0 && quizState.blank === 0) {
         addXpAndCheckRankUp(30);
         setTimeout(() => {
@@ -1810,7 +1818,7 @@ function initKeyboardShortcuts() {
 }
 
 // ==========================================
-// 13. LLIGA SETMANAL PER DIVISIONS AMB ZONES D'ASCENS/DESCENS
+// 13. LLIGA SETMANAL PER DIVISIONS
 // ==========================================
 function reportCurrentQuestion() {
     const q = quizState.questions[quizState.currentIndex];
@@ -1856,9 +1864,10 @@ async function loadRanking() {
             const medal = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : `#${pos}`;
             const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
             const uRank = calculatePoliceRank(u.xp || 0);
+            const cleanAvatar = (u.avatar === '👮‍♂️' || u.avatar === '👮‍♀️') ? '👮' : (u.avatar || '👮');
 
             row.innerHTML = `
-                <span>${medal} ${u.avatar || '👮‍♂️'} ${u.displayName || 'Opositor'} <small class="muted-sm">(${uRank.name})</small> ${isPro ? '💎' : ''}</span>
+                <span>${medal} ${cleanAvatar} ${u.displayName || 'Opositor'} <small class="muted-sm">(${uRank.name})</small> ${isPro ? '💎' : ''}</span>
                 <span>🔥 ${u.dailyStreak || 0}d · ⚡ ${u.xp || 0} XP</span>
             `;
             list.appendChild(row);
@@ -1903,12 +1912,12 @@ async function startLiveEvent() {
 }
 
 // ==========================================
-// 14. PANEL CEO COMPACTE + EDITOR EN 1 CLIC (✏️)
+// 14. PANEL CEO 100% FUNCIONAL (TAULA + CERCADOR GLOBAL + PUJADA MASSIVA)
 // ==========================================
 async function ceoLoadBanksStatus() {
     if (currentUser?.email.toLowerCase() !== CEO_EMAIL.toLowerCase()) return;
     const grid = document.getElementById('ceo-banks-grid');
-    grid.innerHTML = '<p class="muted-sm">Carregant...</p>';
+    grid.innerHTML = '<p class="muted-sm">Consultando Firestore...</p>';
 
     try {
         const snap = await getDocs(collection(db, "mossos_custom_questions"));
@@ -1918,28 +1927,84 @@ async function ceoLoadBanksStatus() {
         });
 
         grid.innerHTML = '';
+        let totalQuestionsInCloud = 0;
+
         ALL_FILES.forEach(code => {
             const bankDoc = firestoreMap[code];
             const isOnline = bankDoc && Array.isArray(bankDoc.questions);
             const qCount = isOnline ? bankDoc.questions.length : 0;
+            totalQuestionsInCloud += qCount;
 
-            const card = document.createElement('div');
-            card.className = `bank-card ${isOnline ? 'online' : ''}`;
-            card.innerHTML = `
-                <div class="bank-head">
-                    <strong>${code.toUpperCase()}</strong>
-                    <span class="bank-status">${isOnline ? `☁️ ${qCount}` : 'Buit'}</span>
+            if (isOnline) {
+                questionCache[code] = bankDoc.questions;
+            }
+
+            const row = document.createElement('div');
+            row.className = `ceo-bank-row ${isOnline ? 'online' : ''}`;
+            row.innerHTML = `
+                <div class="ceo-bank-info">
+                    <span class="ceo-code-pill">${code.toUpperCase()}</span>
+                    <strong>${TOPIC_NAMES[code] || code.toUpperCase()}</strong>
+                    <span class="ceo-count-pill ${isOnline ? '' : 'empty'}">${isOnline ? `${qCount} preg.` : 'Vacío'}</span>
                 </div>
-                <div class="bank-actions">
-                    <button class="btn-3d btn-blue btn-sm" onclick="triggerUploadJson('${code}')">📤 JSON</button>
-                    <button class="btn-3d btn-white btn-sm" onclick="openTopicManager('${code}')">✏️ Editar</button>
-                    <button class="btn-3d btn-gray btn-sm" onclick="ceoDownloadBackup('${code}')">📥 Còpia</button>
-                    <button class="btn-3d btn-red btn-sm" onclick="ceoDeleteBank('${code}')">🗑️</button>
+                <div class="row-btns">
+                    <button class="btn-3d btn-blue btn-sm" onclick="triggerUploadJson('${code}')">Subir JSON</button>
+                    <button class="btn-3d btn-white btn-sm" onclick="openTopicManager('${code}')">Ver / Editar (${qCount})</button>
+                    <button class="btn-3d btn-gray btn-sm" onclick="ceoDownloadBackup('${code}')">Descargar</button>
+                    <button class="btn-3d btn-red btn-sm" onclick="ceoDeleteBank('${code}')">Borrar</button>
                 </div>
             `;
-            grid.appendChild(card);
+            grid.appendChild(row);
         });
-    } catch (e) {}
+
+        const badge = document.getElementById('ceo-total-q-badge');
+        if (badge) badge.textContent = `Total en Firestore: ${totalQuestionsInCloud} preg.`;
+    } catch (e) {
+        grid.innerHTML = '<p class="muted-sm">Error leyendo Firestore.</p>';
+    }
+}
+
+// Cercador Global de Preguntes als 20 temes alhora
+async function ceoSearchAllQuestions() {
+    const term = document.getElementById('ceo-global-q-search').value.toLowerCase().trim();
+    const resContainer = document.getElementById('ceo-global-q-results');
+    resContainer.innerHTML = '';
+
+    if (term.length < 3) return;
+
+    await fetchQuestionsFromCodes(ALL_FILES);
+    const matches = [];
+
+    for (const code of ALL_FILES) {
+        const list = questionCache[code] || [];
+        list.forEach((q, idx) => {
+            if ((q.question || '').toLowerCase().includes(term) || (q.correctAnswer || '').toLowerCase().includes(term)) {
+                matches.push({ code, idx, q });
+            }
+        });
+        if (matches.length >= 25) break;
+    }
+
+    if (!matches.length) {
+        resContainer.innerHTML = '<p class="muted-sm">Sin coincidencias.</p>';
+        return;
+    }
+
+    matches.slice(0, 20).forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'admin-row';
+        div.innerHTML = `
+            <div>
+                <span class="ceo-code-pill">${m.code.toUpperCase()}</span>
+                <strong>${m.q.question}</strong><br>
+                <small class="muted-sm">Correcta: <b>${m.q.correctAnswer}</b></small>
+            </div>
+            <div class="row-btns">
+                <button class="btn-3d btn-blue btn-sm" onclick="openEditQuestionModal('${m.code}', ${m.idx})">Editar</button>
+            </div>
+        `;
+        resContainer.appendChild(div);
+    });
 }
 
 function triggerUploadJson(code) {
@@ -1949,6 +2014,43 @@ function triggerUploadJson(code) {
     uploader.click();
 }
 
+function triggerBulkUpload() {
+    const uploader = document.getElementById('ceo-bulk-uploader');
+    uploader.value = '';
+    uploader.click();
+}
+
+async function handleBulkJsonUpload(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    let uploaded = 0;
+    for (const file of files) {
+        const match = file.name.toLowerCase().match(/([abc][1-8])/);
+        if (!match) continue;
+        const code = match[1];
+        if (!ALL_FILES.includes(code)) continue;
+
+        try {
+            const parsed = JSON.parse(await file.text());
+            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].question) {
+                await setDoc(doc(db, "mossos_custom_questions", `bank_${code}`), {
+                    topic: code,
+                    questions: parsed,
+                    updatedAt: Date.now()
+                });
+                clearLocalBankCache(code);
+                questionCache[code] = parsed;
+                uploaded++;
+            }
+        } catch (e) {}
+    }
+
+    renderTopicNodes();
+    ceoLoadBanksStatus();
+    showToast(`${uploaded} archivos JSON actualizados en Firestore`, 'success');
+}
+
 async function handleJsonFileUpload(event) {
     const file = event.target.files[0];
     if (!file || !currentUploadTargetCode) return;
@@ -1956,7 +2058,7 @@ async function handleJsonFileUpload(event) {
     try {
         const parsed = JSON.parse(await file.text());
         if (!Array.isArray(parsed) || !parsed.length || !parsed[0].question) {
-            return showToast('Format JSON invàlid', 'error');
+            return showToast('Formato JSON inválido', 'error');
         }
         await setDoc(doc(db, "mossos_custom_questions", `bank_${code}`), {
             topic: code,
@@ -1966,18 +2068,18 @@ async function handleJsonFileUpload(event) {
         clearLocalBankCache(code);
         await loadSingleTopicCode(code, true);
         renderTopicNodes();
-        showToast(`✅ ${code.toUpperCase()} actualitzat!`, 'success');
+        showToast(`Tema ${code.toUpperCase()} actualizado (${parsed.length} preg.)`, 'success');
         ceoLoadBanksStatus();
     } catch (e) {
-        showToast('Error pujant JSON', 'error');
+        showToast('Error subiendo JSON', 'error');
     }
 }
 
 function ceoDeleteBank(code) {
     showModal({
-        icon: '🗑️',
-        title: `Eliminar ${code.toUpperCase()}?`,
-        text: `S'esborrarà bank_${code} de Firestore.`,
+        icon: '⚠️',
+        title: `¿Eliminar Tema ${code.toUpperCase()}?`,
+        text: `Se borrará bank_${code} de Firestore.`,
         confirmText: 'Eliminar',
         onConfirm: async () => {
             await deleteDoc(doc(db, "mossos_custom_questions", `bank_${code}`));
@@ -1989,7 +2091,7 @@ function ceoDeleteBank(code) {
 
 async function ceoDownloadBackup(code) {
     const questions = await fetchQuestionsFromCodes([code], true);
-    if (!questions.length) return showToast('Tema buit', 'error');
+    if (!questions.length) return showToast('Tema vacío', 'error');
     const blob = new Blob([JSON.stringify(questions, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2017,7 +2119,7 @@ function renderManagedTopicQuestions(questionsArray) {
     const listEl = document.getElementById('ceo-topic-questions-list');
     listEl.innerHTML = '';
     if (!questionsArray.length) {
-        listEl.innerHTML = '<p class="muted-sm">Cap pregunta.</p>';
+        listEl.innerHTML = '<p class="muted-sm">Sin preguntas.</p>';
         return;
     }
 
@@ -2028,18 +2130,17 @@ function renderManagedTopicQuestions(questionsArray) {
         item.innerHTML = `
             <div>
                 <strong>${realIndex + 1}. ${q.question}</strong>
-                <div class="muted-sm mt-2">✅ <b>${q.correctAnswer}</b></div>
+                <div class="muted-sm mt-2">Correcta: <b>${q.correctAnswer}</b></div>
             </div>
             <div class="row-btns">
-                <button class="btn-3d btn-blue btn-sm" onclick="openEditQuestionModal('${currentManagedTopicCode}', ${realIndex})">✏️</button>
-                <button class="btn-3d btn-red btn-sm" onclick="deleteSingleQuestionFromTopic(${realIndex})">🗑️</button>
+                <button class="btn-3d btn-blue btn-sm" onclick="openEditQuestionModal('${currentManagedTopicCode}', ${realIndex})">Editar</button>
+                <button class="btn-3d btn-red btn-sm" onclick="deleteSingleQuestionFromTopic(${realIndex})">Borrar</button>
             </div>
         `;
         listEl.appendChild(item);
     });
 }
 
-// EDITOR DE PREGUNTES EN 1 CLIC (SENSE RESUBIR JSON)
 async function openEditQuestionModal(code, realIndex) {
     closeTopicManager();
     const list = await fetchQuestionsFromCodes([code], false);
@@ -2049,17 +2150,17 @@ async function openEditQuestionModal(code, realIndex) {
     const wrongOpts = (q.options || []).filter(o => o.trim() !== q.correctAnswer.trim());
 
     showModal({
-        icon: '✏️',
+        icon: '📝',
         title: `Editar Pregunta (${code.toUpperCase()})`,
         html: `
-            <input id="edit-q-title" class="duo-input" placeholder="Enunciat">
-            <input id="edit-q-ok" class="duo-input" placeholder="Resposta Correcta">
+            <input id="edit-q-title" class="duo-input" placeholder="Enunciado">
+            <input id="edit-q-ok" class="duo-input" placeholder="Respuesta Correcta">
             <input id="edit-q-ko1" class="duo-input" placeholder="Incorrecta 1">
             <input id="edit-q-ko2" class="duo-input" placeholder="Incorrecta 2">
             <input id="edit-q-ko3" class="duo-input" placeholder="Incorrecta 3">
-            <input id="edit-q-exp" class="duo-input" placeholder="Explicació">
+            <input id="edit-q-exp" class="duo-input" placeholder="Explicación">
         `,
-        confirmText: 'Guardar Canvis',
+        confirmText: 'Guardar',
         onConfirm: async () => {
             const newQuestion = document.getElementById('edit-q-title').value.trim();
             const o1 = document.getElementById('edit-q-ok').value.trim();
@@ -2068,7 +2169,7 @@ async function openEditQuestionModal(code, realIndex) {
             const o4 = document.getElementById('edit-q-ko3').value.trim();
             const exp = document.getElementById('edit-q-exp').value.trim();
 
-            if (!newQuestion || !o1) return showToast('Falten dades', 'error');
+            if (!newQuestion || !o1) return showToast('Faltan datos', 'error');
 
             list[realIndex] = {
                 question: newQuestion,
@@ -2084,7 +2185,8 @@ async function openEditQuestionModal(code, realIndex) {
             });
             clearLocalBankCache(code);
             await loadSingleTopicCode(code, true);
-            showToast('✅ Pregunta actualitzada!', 'success');
+            ceoLoadBanksStatus();
+            showToast('Pregunta actualizada', 'success');
         }
     });
 
@@ -2098,7 +2200,6 @@ async function openEditQuestionModal(code, realIndex) {
     }, 40);
 }
 
-// Localitza una pregunta reportada als 20 temes i obre l'editor en 1 clic
 async function ceoEditReportedQuestion(encodedQuestion) {
     const targetQ = decodeURIComponent(encodedQuestion).trim();
     await fetchQuestionsFromCodes(ALL_FILES);
@@ -2111,7 +2212,7 @@ async function ceoEditReportedQuestion(encodedQuestion) {
             return;
         }
     }
-    showToast('No s\'ha trobat la pregunta als bancs.', 'error');
+    showToast('Pregunta no encontrada en los bancos.', 'error');
 }
 
 function filterTopicQuestions() {
@@ -2132,7 +2233,7 @@ async function deleteSingleQuestionFromTopic(realIndex) {
     clearLocalBankCache(code);
     filterTopicQuestions();
     ceoLoadBanksStatus();
-    showToast('Eliminada!', 'success');
+    showToast('Pregunta eliminada', 'success');
 }
 
 function openAddQuestionToCurrentTopic() {
@@ -2140,14 +2241,14 @@ function openAddQuestionToCurrentTopic() {
     closeTopicManager();
     showModal({
         icon: '➕',
-        title: `Nova Pregunta (${code.toUpperCase()})`,
+        title: `Nueva Pregunta (${code.toUpperCase()})`,
         html: `
-            <input id="new-q-title" class="duo-input" placeholder="Enunciat">
+            <input id="new-q-title" class="duo-input" placeholder="Enunciado">
             <input id="new-q-ok" class="duo-input" placeholder="Correcta">
             <input id="new-q-ko1" class="duo-input" placeholder="Incorrecta 1">
             <input id="new-q-ko2" class="duo-input" placeholder="Incorrecta 2">
             <input id="new-q-ko3" class="duo-input" placeholder="Incorrecta 3">
-            <input id="new-q-exp" class="duo-input" placeholder="Explicació">
+            <input id="new-q-exp" class="duo-input" placeholder="Explicación">
         `,
         confirmText: 'Guardar',
         onConfirm: async () => {
@@ -2158,7 +2259,7 @@ function openAddQuestionToCurrentTopic() {
             const o4 = document.getElementById('new-q-ko3').value.trim();
             const explanation = document.getElementById('new-q-exp').value.trim();
 
-            if (!question || !o1 || !o2) return showToast('Falten dades', 'error');
+            if (!question || !o1 || !o2) return showToast('Faltan datos', 'error');
             currentManagedQuestions.unshift({
                 question,
                 options: shuffle([o1, o2, o3, o4].filter(Boolean)),
@@ -2172,7 +2273,7 @@ function openAddQuestionToCurrentTopic() {
             });
             clearLocalBankCache(code);
             ceoLoadBanksStatus();
-            showToast('Guardada!', 'success');
+            showToast('Guardada', 'success');
         }
     });
 }
@@ -2180,7 +2281,7 @@ function openAddQuestionToCurrentTopic() {
 async function ceoLoadUsers() {
     if (currentUser?.email.toLowerCase() !== CEO_EMAIL.toLowerCase()) return;
     const container = document.getElementById('ceo-users-list');
-    container.innerHTML = '<p class="muted-sm">Carregant...</p>';
+    container.innerHTML = '<p class="muted-sm">Cargando...</p>';
     const snap = await getDocs(collection(db, "users"));
     allUsersCache = [];
     snap.forEach(d => allUsersCache.push({ uid: d.id, ...d.data() }));
@@ -2210,13 +2311,13 @@ function renderCeoUsersList(usersArray) {
         div.className = 'admin-row';
         div.innerHTML = `
             <div>
-                <strong>${u.avatar || '👮‍♂️'} ${u.displayName || 'Usuari'}</strong> <small class="muted-sm">(${u.email || u.uid})</small><br>
-                <small>⚡ ${u.xp || 0} · 🔥 ${u.dailyStreak || 0}d · 👥 ${invites} · ${isPro ? '💎 PRO' : 'Gratis'} ${isBanned ? '· 🚫 BAN' : ''}</small>
+                <strong>${u.displayName || 'Usuario'}</strong> <small class="muted-sm">(${u.email || u.uid})</small><br>
+                <small>${u.xp || 0} XP · Racha: ${u.dailyStreak || 0}d · Invitados: <b>${invites}</b> · ${isPro ? 'PRO' : 'Gratis'} ${isBanned ? '· BANEADO' : ''}</small>
             </div>
             <div class="row-btns">
-                <button class="btn-3d btn-blue btn-sm" onclick="ceoInspectUser('${u.uid}')">🔍</button>
-                <button class="btn-3d btn-gold btn-sm" onclick="ceoTogglePro('${u.uid}', ${!isPro})">${isPro ? '- PRO' : '+ PRO'}</button>
-                <button class="btn-3d ${isBanned ? 'btn-green' : 'btn-red'} btn-sm" onclick="ceoToggleBan('${u.uid}', ${!isBanned})">${isBanned ? 'Unban' : 'Ban'}</button>
+                <button class="btn-3d btn-blue btn-sm" onclick="ceoInspectUser('${u.uid}')">Detalles</button>
+                <button class="btn-3d btn-gold btn-sm" onclick="ceoTogglePro('${u.uid}', ${!isPro})">${isPro ? 'Quitar PRO' : 'Dar PRO'}</button>
+                <button class="btn-3d ${isBanned ? 'btn-green' : 'btn-red'} btn-sm" onclick="ceoToggleBan('${u.uid}', ${!isBanned})">${isBanned ? 'Desbloquear' : 'Banear'}</button>
             </div>
         `;
         container.appendChild(div);
@@ -2237,24 +2338,24 @@ function ceoInspectUser(uid) {
         : '0.00';
 
     showModal({
-        icon: u.avatar || '👮‍♂️',
-        title: u.displayName || 'Usuari',
+        icon: '👤',
+        title: u.displayName || 'Usuario',
         html: `
             <div class="muted-sm mb-2">${u.email || ''}<br><code>${u.uid}</code></div>
             <div class="user-detail-grid">
-                <div class="u-stat-box"><small>Estat</small><strong>${isBanned ? '🚫 BAN' : (isPro ? '💎 PRO' : 'GRATIS')}</strong></div>
-                <div class="u-stat-box"><small>Convidats</small><strong>👥 ${invites}</strong></div>
-                <div class="u-stat-box"><small>XP i Ratxa</small><strong>⚡ ${u.xp || 0} · 🔥 ${u.dailyStreak || 0}d</strong></div>
-                <div class="u-stat-box"><small>Vistes</small><strong>👁️ ${(u.seenQuestions || []).length}</strong></div>
-                <div class="u-stat-box"><small>Mitjana (${completedTopics.length}/20)</small><strong>📊 ${avgScore}</strong></div>
-                <div class="u-stat-box"><small>Errors / ⭐</small><strong>❤️ ${(u.failedQuestions || []).length} · ⭐ ${(u.savedQuestions || []).length}</strong></div>
+                <div class="u-stat-box"><small>Estado</small><strong>${isBanned ? 'BANEADO' : (isPro ? 'PRO' : 'GRATIS')}</strong></div>
+                <div class="u-stat-box"><small>Invitados</small><strong>${invites}</strong></div>
+                <div class="u-stat-box"><small>XP y Racha</small><strong>${u.xp || 0} XP · ${u.dailyStreak || 0}d</strong></div>
+                <div class="u-stat-box"><small>Vistas</small><strong>${(u.seenQuestions || []).length}</strong></div>
+                <div class="u-stat-box"><small>Media (${completedTopics.length}/20)</small><strong>${avgScore}</strong></div>
+                <div class="u-stat-box"><small>Errores / Guardadas</small><strong>${(u.failedQuestions || []).length} / ${(u.savedQuestions || []).length}</strong></div>
             </div>
             <div class="row-btns mt-3" style="justify-content:center;">
-                <button class="btn-3d btn-gray btn-sm" onclick="ceoDeleteUserAccount('${u.uid}')">🗑️ Esborrar</button>
+                <button class="btn-3d btn-gray btn-sm" onclick="ceoDeleteUserAccount('${u.uid}')">Borrar Usuario</button>
             </div>
         `,
         cancelText: null,
-        confirmText: 'Tancar'
+        confirmText: 'Cerrar'
     });
 }
 
@@ -2271,9 +2372,9 @@ async function ceoToggleBan(uid, banStatus) {
 function ceoDeleteUserAccount(uid) {
     showModal({
         icon: '⚠️',
-        title: 'Esborrar usuari?',
-        text: 'S\'eliminaran les seves dades.',
-        confirmText: 'Esborrar',
+        title: '¿Borrar usuario?',
+        text: 'Se eliminarán sus datos de Firestore.',
+        confirmText: 'Borrar',
         onConfirm: async () => {
             await deleteDoc(doc(db, "users", uid));
             ceoLoadUsers();
@@ -2295,7 +2396,7 @@ async function ceoSaveAlert() {
     const msg = document.getElementById('ceo-alert-input').value.trim();
     await setDoc(doc(db, "admin", "global"), { message: msg });
     loadGlobalAlert();
-    showToast('Publicada!', 'success');
+    showToast('Alerta publicada', 'success');
 }
 
 async function ceoClearAlert() {
@@ -2308,7 +2409,7 @@ async function ceoSaveEvent() {
     const desc = document.getElementById('ceo-ev-desc').value.trim() || '30 preg · 35 min';
     await setDoc(doc(db, "mossos_events", "active"), { active: true, title, desc });
     loadLiveEventBanner();
-    showToast('🔴 Activat!', 'success');
+    showToast('Evento activado', 'success');
 }
 
 async function ceoClearEvent() {
@@ -2318,11 +2419,11 @@ async function ceoClearEvent() {
 
 async function ceoLoadReports() {
     const container = document.getElementById('ceo-reports-list');
-    container.innerHTML = 'Carregant...';
+    container.innerHTML = 'Cargando...';
     const snap = await getDocs(collection(db, "reports"));
     container.innerHTML = '';
     if (snap.empty) {
-        container.innerHTML = '<p class="muted-sm">0 reports.</p>';
+        container.innerHTML = '<p class="muted-sm">0 reportes pendientes.</p>';
         return;
     }
     snap.forEach(d => {
@@ -2333,8 +2434,8 @@ async function ceoLoadReports() {
         div.innerHTML = `
             <div><strong>${r.question}</strong><br><small>${r.reason} (${r.user || ''})</small></div>
             <div class="row-btns">
-                <button class="btn-3d btn-blue btn-sm" onclick="ceoEditReportedQuestion('${encodedQ}')">✏️ Editar</button>
-                <button class="btn-3d btn-red btn-sm" onclick="ceoDeleteReport('${d.id}')">🗑️</button>
+                <button class="btn-3d btn-blue btn-sm" onclick="ceoEditReportedQuestion('${encodedQ}')">Editar Pregunta</button>
+                <button class="btn-3d btn-red btn-sm" onclick="ceoDeleteReport('${d.id}')">Borrar</button>
             </div>
         `;
         container.appendChild(div);
@@ -2396,7 +2497,8 @@ Object.assign(window, {
     openProModal, openLivesModal, showDailyStreakPopup, claimDailyChest, toggleSound,
     copyReferralLink, redeemFriendCode, loadRanking, reportCurrentQuestion,
     selectProfileAvatar, saveUserProfileData, resetSeenQuestionsHistory,
-    forceReloadQuestionBanks, ceoLoadBanksStatus, triggerUploadJson, handleJsonFileUpload,
+    forceReloadQuestionBanks, ceoLoadBanksStatus, ceoSearchAllQuestions,
+    triggerUploadJson, triggerBulkUpload, handleBulkJsonUpload, handleJsonFileUpload,
     ceoDeleteBank, ceoDownloadBackup, openTopicManager, closeTopicManager,
     openEditQuestionModal, ceoEditReportedQuestion, filterTopicQuestions,
     deleteSingleQuestionFromTopic, openAddQuestionToCurrentTopic, ceoSaveAlert,
