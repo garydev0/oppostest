@@ -51,7 +51,7 @@
     <!-- TOASTS -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- POP-UP ESPECIAL RECOMPENSES ESTIL iOS (AirPods / Apple Fitness) -->
+    <!-- POP-UP RECOMPENSES ESTIL iOS -->
     <div id="ios-reward-overlay" class="modal-overlay hidden">
         <div class="ios-reward-card">
             <div id="reward-halo" class="reward-halo"></div>
@@ -81,22 +81,24 @@
         </div>
     </div>
 
-    <!-- MODAL CEO: GESTOR DE PREGUNTES DEL TEMA -->
-    <div id="ceo-topic-modal" class="modal-overlay hidden">
+    <!-- MODAL CEO: GESTOR DE PREGUNTES DEL TEMA (Sense emojis pesats) -->
+    <div id="ceo-topic-modal" class="modal-overlay hidden no-apple-emoji">
         <div class="modal-card modal-wide">
             <div class="card-head">
                 <h3 id="ceo-topic-modal-title">Tema A1</h3>
                 <button class="btn-icon" onclick="closeTopicManager()">✕</button>
             </div>
             <div class="topic-manager-toolbar">
-                <input type="text" id="ceo-search-q" class="duo-input" placeholder="🔍 Buscar pregunta..." oninput="filterTopicQuestions()">
-                <button class="btn-3d btn-green btn-sm" onclick="openAddQuestionToCurrentTopic()">➕ Afegir</button>
+                <input type="text" id="ceo-search-q" class="duo-input" placeholder="Buscar pregunta en aquest tema..." oninput="filterTopicQuestions()">
+                <button class="btn-3d btn-green btn-sm" onclick="openAddQuestionToCurrentTopic()">+ Nova Pregunta</button>
             </div>
             <div id="ceo-topic-questions-list" class="topic-questions-scroll"></div>
         </div>
     </div>
 
+    <!-- Inputs ocults per pujar 1 o diversos JSON alhora -->
     <input type="file" id="ceo-file-uploader" accept=".json" class="hidden" onchange="handleJsonFileUpload(event)">
+    <input type="file" id="ceo-bulk-uploader" accept=".json" multiple class="hidden" onchange="handleBulkJsonUpload(event)">
 
     <!-- ALERTA GLOBAL CEO -->
     <div id="global-alert-banner" class="alert-banner hidden">
@@ -170,20 +172,19 @@
                     <span>❤️</span> <strong id="ui-lives">5</strong>
                 </div>
                 <button id="btn-sound-toggle" class="top-stat sound-btn" onclick="toggleSound()" title="So iOS">
-                    🔊
+                    🔔
                 </button>
                 <button id="ui-pro-badge" class="pro-pill" onclick="openProModal()">GRATIS</button>
                 <button id="ui-ceo-top-btn" class="ceo-top-pill hidden" onclick="switchTab('ceo')">👑 CEO</button>
                 <div class="top-user" id="ui-user-tag" onclick="switchTab('profile')">
-                    <span id="ui-user-avatar">👮‍♂️</span> <span id="ui-user-name" class="hide-xs">Convidat</span>
+                    <span id="ui-user-avatar">👮</span> <span id="ui-user-name" class="hide-xs">Convidat</span>
                 </div>
             </header>
 
             <!-- ==========================================
-                 VISTA 1: INICI (ESTIL DUOLINGO PRÒPIA)
+                 VISTA 1: INICI
                  ========================================== -->
             <section id="view-learn" class="content-view">
-                <!-- Banner Esdeveniment en Viu -->
                 <div id="live-event-banner" class="live-event-card hidden">
                     <div>
                         <span class="live-tag">🔴 EN VIU</span>
@@ -193,9 +194,8 @@
                     <button class="btn-3d btn-white" onclick="startLiveEvent()">Entrar →</button>
                 </div>
 
-                <!-- FILA SUPERIOR: SEGÜENT PAS + 3 MISSIONS DIÀRIES -->
                 <div class="duo-home-grid">
-                    <!-- Targeta Esquerra: Següent Tema + Anell Apple Fitness -->
+                    <!-- Targeta Esquerra: Següent Tema + Anell -->
                     <div class="duo-path-card">
                         <div class="path-card-top">
                             <span id="home-rank-pill" class="rank-chip">🎖️ Aspirant</span>
@@ -264,7 +264,7 @@
                     </div>
                 </div>
 
-                <!-- 4 BOTONS CURTS D'ENTRENAMENT -->
+                <!-- 4 BOTONS CURTS -->
                 <div class="quick-modes">
                     <button class="btn-3d btn-red mode-big" onclick="switchTab('simulacre')">
                         <span class="big-icon">⏱️</span>
@@ -315,7 +315,7 @@
             </section>
 
             <!-- ==========================================
-                 VISTA 2: PESTANYA TEMARI (Minimalista)
+                 VISTA 2: PESTANYA TEMARI
                  ========================================== -->
             <section id="view-temari" class="content-view hidden">
                 <div class="temari-filter-bar">
@@ -351,7 +351,7 @@
             </section>
 
             <!-- ==========================================
-                 VISTA 3: SIMULACRE (Minimalista)
+                 VISTA 3: SIMULACRE
                  ========================================== -->
             <section id="view-simulacre-hub" class="content-view hidden">
                 <div class="profile-grid">
@@ -377,7 +377,7 @@
             </section>
 
             <!-- ==========================================
-                 VISTA 4: REPÀS (Minimalista + Recàrrega de Vides)
+                 VISTA 4: REPÀS
                  ========================================== -->
             <section id="view-errors-hub" class="content-view hidden">
                 <div class="profile-grid">
@@ -402,10 +402,9 @@
             </section>
 
             <!-- ==========================================
-                 VISTA 5: LLIGA SETMANAL PER DIVISIONS
+                 VISTA 5: LLIGA SETMANAL
                  ========================================== -->
             <section id="view-ranking" class="content-view hidden">
-                <!-- Capçalera de Divisió estil Duolingo -->
                 <div class="league-header-card">
                     <div class="league-badge-box">
                         <span id="league-div-icon" class="league-icon">🛡️</span>
@@ -415,7 +414,7 @@
                         </div>
                     </div>
                     <div class="league-meta">
-                        <span id="league-reset-timer" class="tag-pill">⏳ Reinici: Diumenge 23:59</span>
+                        <span id="league-reset-timer" class="tag-pill">⏳ Diumenge 23:59</span>
                         <button class="btn-3d btn-gray btn-sm" onclick="loadRanking()">🔄</button>
                     </div>
                 </div>
@@ -424,7 +423,6 @@
                     <div id="ranking-list" class="ranking-list"></div>
                 </div>
 
-                <!-- Targeta compacta d'invitacions PRO -->
                 <div class="referral-card">
                     <div>
                         <span class="unit-tag">💎 PRO GRATIS (VIDES INFINITES)</span>
@@ -449,7 +447,7 @@
                 <div class="profile-grid">
                     <div class="card-clean">
                         <div class="profile-header-box">
-                            <div id="profile-big-avatar" class="profile-avatar-circle">👮‍♂️</div>
+                            <div id="profile-big-avatar" class="profile-avatar-circle">👮</div>
                             <div>
                                 <h2 id="profile-display-title">Opositor</h2>
                                 <p id="profile-email-subtitle" class="muted-sm">Convidat</p>
@@ -458,13 +456,13 @@
 
                         <label class="form-label">Avatar</label>
                         <div id="avatar-selector" class="avatar-picker">
-                            <button type="button" class="avatar-opt" data-emoji="👮‍♂️" onclick="selectProfileAvatar('👮‍♂️')">👮‍♂️</button>
-                            <button type="button" class="avatar-opt" data-emoji="👮‍♀️" onclick="selectProfileAvatar('👮‍♀️')">👮‍♀️</button>
+                            <button type="button" class="avatar-opt" data-emoji="👮" onclick="selectProfileAvatar('👮')">👮</button>
                             <button type="button" class="avatar-opt" data-emoji="🚓" onclick="selectProfileAvatar('🚓')">🚓</button>
                             <button type="button" class="avatar-opt" data-emoji="🛡️" onclick="selectProfileAvatar('🛡️')">🛡️</button>
                             <button type="button" class="avatar-opt" data-emoji="🎯" onclick="selectProfileAvatar('🎯')">🎯</button>
                             <button type="button" class="avatar-opt" data-emoji="🔥" onclick="selectProfileAvatar('🔥')">🔥</button>
                             <button type="button" class="avatar-opt" data-emoji="⚡" onclick="selectProfileAvatar('⚡')">⚡</button>
+                            <button type="button" class="avatar-opt" data-emoji="🏆" onclick="selectProfileAvatar('🏆')">🏆</button>
                             <button type="button" class="avatar-opt" data-emoji="🦁" onclick="selectProfileAvatar('🦁')">🦁</button>
                         </div>
 
@@ -514,53 +512,68 @@
             </section>
 
             <!-- ==========================================
-                 VISTA 7: PANEL CEO (Compacte + Editor 1 clic)
+                 VISTA 7: PANEL CEO (100% Utilitari, Sense Emojis d'Apple)
                  ========================================== -->
-            <section id="view-ceo" class="content-view hidden">
+            <section id="view-ceo" class="content-view hidden no-apple-emoji">
                 <div class="ceo-header">
-                    <h2>👑 Panel CEO</h2>
-                    <span class="ceo-badge">gerardlopezgarcia1@gmail.com</span>
-                </div>
-
-                <div class="card-clean mb-3 border-gold">
-                    <div class="card-head">
-                        <h3>📁 Bancs a Firestore</h3>
-                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadBanksStatus()">🔄</button>
+                    <h2>Panel de Control CEO</h2>
+                    <div class="row-btns">
+                        <span id="ceo-total-q-badge" class="ceo-badge">Total: 0 preg.</span>
+                        <button class="btn-3d btn-gold btn-sm" onclick="triggerBulkUpload()">Subida Masiva JSON</button>
+                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadBanksStatus()">Recargar</button>
                     </div>
-                    <div id="ceo-banks-grid" class="banks-admin-grid"></div>
                 </div>
 
+                <!-- EINA 1: CERCADOR GLOBAL DE PREGUNTES EN ELS 20 TEMES -->
                 <div class="card-clean mb-3">
                     <div class="card-head">
-                        <h3>🚩 Reports d'Usuaris</h3>
-                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadReports()">🔄</button>
+                        <h3>Buscador Global de Preguntas (20 Temas)</h3>
+                    </div>
+                    <input type="text" id="ceo-global-q-search" class="duo-input" placeholder="Escribe cualquier palabra para buscar una pregunta en todos los temas a la vez..." oninput="ceoSearchAllQuestions()">
+                    <div id="ceo-global-q-results" class="admin-list mt-2"></div>
+                </div>
+
+                <!-- EINA 2: TAULA COMPACTA DE BANCS A FIRESTORE -->
+                <div class="card-clean mb-3 border-gold">
+                    <div class="card-head">
+                        <h3>Bancos de Preguntas en Firestore (A1 - C5)</h3>
+                    </div>
+                    <div id="ceo-banks-grid" class="ceo-table-list"></div>
+                </div>
+
+                <!-- EINA 3: REPORTS D'ERRORS -->
+                <div class="card-clean mb-3">
+                    <div class="card-head">
+                        <h3>Reportes de Preguntas</h3>
+                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadReports()">Recargar</button>
                     </div>
                     <div id="ceo-reports-list" class="admin-list"></div>
                 </div>
 
+                <!-- EINA 4: GESTIÓ D'USUARIS -->
                 <div class="card-clean mb-3">
                     <div class="card-head">
-                        <h3>👥 Usuaris</h3>
-                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadUsers()">🔄</button>
+                        <h3>Usuarios Registrados</h3>
+                        <button class="btn-3d btn-gray btn-sm" onclick="ceoLoadUsers()">Recargar</button>
                     </div>
-                    <input type="text" id="ceo-user-search" class="duo-input mb-2" placeholder="🔍 Buscar usuari..." oninput="ceoFilterUsers()">
+                    <input type="text" id="ceo-user-search" class="duo-input mb-2" placeholder="Filtrar por correo, nombre o UID..." oninput="ceoFilterUsers()">
                     <div id="ceo-users-list" class="admin-list"></div>
                 </div>
 
                 <div class="ceo-grid">
                     <div class="card-clean">
-                        <h3>📢 Alerta Web</h3>
-                        <input type="text" id="ceo-alert-input" class="duo-input" placeholder="Missatge...">
+                        <h3>Alerta Superior Web</h3>
+                        <input type="text" id="ceo-alert-input" class="duo-input" placeholder="Mensaje...">
                         <div class="row-btns">
                             <button class="btn-3d btn-green btn-sm" onclick="ceoSaveAlert()">Publicar</button>
-                            <button class="btn-3d btn-gray btn-sm" onclick="ceoClearAlert()">Treure</button>
+                            <button class="btn-3d btn-gray btn-sm" onclick="ceoClearAlert()">Quitar</button>
                         </div>
                     </div>
 
                     <div class="card-clean">
-                        <h3>🔴 Simulacre en Viu</h3>
-                        <input type="text" id="ceo-ev-title" class="duo-input" placeholder="Títol">
-                        <input type="text" id="ceo-ev-desc" class="duo-input" placeholder="Subtítol">
+                        <h3>Simulacro en Vivo</h3>
+                        <input type="text" id="ceo-ev-title" class="duo-input" placeholder="Título">
+                        <input type="text" id="ceo-ev-desc" class="duo-input" placeholder="Subtítulo">
                         <div class="row-btns">
                             <button class="btn-3d btn-red btn-sm" onclick="ceoSaveEvent()">Activar</button>
                             <button class="btn-3d btn-gray btn-sm" onclick="ceoClearEvent()">Apagar</button>
@@ -570,7 +583,7 @@
             </section>
 
             <!-- ==========================================
-                 VISTA 8: PANTALLA DE TEST (Botons Curts)
+                 VISTA 8: PANTALLA DE TEST
                  ========================================== -->
             <section id="view-quiz" class="content-view hidden">
                 <div class="quiz-header">
