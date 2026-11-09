@@ -132,7 +132,7 @@ img.apple-emoji {
     box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55), var(--ios-specular);
     border-radius: 28px;
     padding: 28px;
-    max-width: 430px;
+    max-width: 440px;
     width: 100%;
     text-align: center;
     position: relative;
@@ -510,7 +510,7 @@ img.apple-emoji {
 .tc-progress-row { display: flex; flex-direction: column; gap: 5px; }
 .tc-progress-meta { display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 700; color: var(--muted); }
 
-/* LLIGUES SETMANALS */
+/* LLIGUES SETMANALS I PERFILS PÚBLICS */
 .league-header-card {
     background: linear-gradient(135deg, #1E1B4B 0%, #132540 100%);
     border: 1px solid rgba(255, 214, 10, 0.45);
@@ -530,6 +530,38 @@ img.apple-emoji {
 .zone-divider { text-align: center; font-size: 0.75rem; font-weight: 800; padding: 6px 12px; border-radius: 10px; letter-spacing: 0.04em; }
 .zone-up { background: rgba(50, 215, 75, 0.14); color: #86EFAC; border: 1px dashed rgba(50, 215, 75, 0.45); }
 .zone-down { background: rgba(255, 69, 58, 0.14); color: #FCA5A5; border: 1px dashed rgba(255, 69, 58, 0.45); }
+
+.rank-row.clickable { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.rank-row.clickable:hover { border-color: var(--blue); background: var(--bg-card-hover); }
+
+/* VITRINA DE 8 MEDALLES */
+.medals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    gap: 12px;
+}
+.medal-card {
+    background: var(--bg-elevated);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    transition: transform 0.15s;
+}
+.medal-card.locked {
+    opacity: 0.42;
+    filter: grayscale(1);
+}
+.medal-card.unlocked {
+    border-color: rgba(255, 214, 10, 0.55);
+    background: rgba(255, 214, 10, 0.07);
+}
+.medal-emoji { font-size: 2rem; flex-shrink: 0; }
+.medal-info strong { display: block; font-size: 0.88rem; color: #fff; font-weight: 800; }
+.medal-info small { font-size: 0.74rem; color: var(--muted); font-weight: 600; }
 
 /* PERFIL I TARGETES COMUNES */
 .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
@@ -590,65 +622,20 @@ img.apple-emoji {
 .feedback-info p { font-size: 0.88rem; color: var(--muted); font-weight: 600; margin-top: 3px; }
 .quiz-actions { margin-left: auto; display: flex; gap: 10px; }
 
-/* =====================================================
-   PANEL CEO UTILITARI (TAULA COMPACTA D'ALTA DENSITAT)
-   ===================================================== */
+/* PANEL CEO */
 .card-clean { background: var(--bg-card); border: 1px solid var(--border); border-bottom: 4px solid var(--border-shadow); box-shadow: var(--ios-specular); border-radius: 22px; padding: 20px; }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; }
 .ceo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
 .ceo-badge { background: var(--bg-elevated); border: 1.5px solid var(--gold); color: var(--gold); padding: 6px 12px; border-radius: 10px; font-weight: 800; font-size: 0.8rem; }
 .ceo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
 
-.ceo-table-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.ceo-bank-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-left: 4px solid #475569;
-    border-radius: 10px;
-    padding: 9px 14px;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-.ceo-bank-row.online {
-    border-left-color: var(--green);
-}
-
-.ceo-bank-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 240px;
-}
-.ceo-code-pill {
-    background: #1E3A5F;
-    color: #5AC8FA;
-    font-weight: 800;
-    font-size: 0.8rem;
-    padding: 4px 9px;
-    border-radius: 6px;
-    min-width: 38px;
-    text-align: center;
-}
-.ceo-count-pill {
-    font-size: 0.78rem;
-    font-weight: 800;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: rgba(50, 215, 75, 0.16);
-    color: #86EFAC;
-}
-.ceo-count-pill.empty {
-    background: rgba(255, 69, 58, 0.16);
-    color: #FCA5A5;
-}
+.ceo-table-list { display: flex; flex-direction: column; gap: 6px; }
+.ceo-bank-row { display: flex; justify-content: space-between; align-items: center; background: var(--bg-elevated); border: 1px solid var(--border); border-left: 4px solid #475569; border-radius: 10px; padding: 9px 14px; gap: 12px; flex-wrap: wrap; }
+.ceo-bank-row.online { border-left-color: var(--green); }
+.ceo-bank-info { display: flex; align-items: center; gap: 12px; min-width: 240px; }
+.ceo-code-pill { background: #1E3A5F; color: #5AC8FA; font-weight: 800; font-size: 0.8rem; padding: 4px 9px; border-radius: 6px; min-width: 38px; text-align: center; }
+.ceo-count-pill { font-size: 0.78rem; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: rgba(50, 215, 75, 0.16); color: #86EFAC; }
+.ceo-count-pill.empty { background: rgba(255, 69, 58, 0.16); color: #FCA5A5; }
 
 .topic-manager-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
 .topic-questions-scroll { max-height: 430px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
@@ -669,8 +656,9 @@ img.apple-emoji {
 .score-badge { width: 136px; height: 136px; border-radius: 50%; border: 8px solid var(--green); margin: 14px auto 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .score-badge span { font-size: 2.2rem; font-weight: 800; color: #fff; }
 .res-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; width: 100%; }
-.r-pill { padding: 12px; border-radius: 14px; background: var(--bg-elevated); border: 1px solid var(--border); font-weight: 700; }
-.r-pill strong { display: block; font-size: 1.4rem; font-weight: 800; }
+.res-pills-4 { grid-template-columns: repeat(4, 1fr); }
+.r-pill { padding: 12px 8px; border-radius: 14px; background: var(--bg-elevated); border: 1px solid var(--border); font-weight: 700; }
+.r-pill strong { display: block; font-size: 1.3rem; font-weight: 800; }
 .review-list { margin-top: 20px; text-align: left; display: flex; flex-direction: column; gap: 10px; }
 
 /* RESPONSIVE */
@@ -716,7 +704,7 @@ img.apple-emoji {
     .pill-count { position: absolute; top: 1px; right: 1px; padding: 1px 4px; font-size: 0.54rem; }
     .content-view { padding: 14px 12px 92px; }
     .duo-home-grid, .referral-card, .profile-grid { grid-template-columns: 1fr; }
-    .quick-modes { grid-template-columns: 1fr 1fr; }
+    .quick-modes, .res-pills-4 { grid-template-columns: 1fr 1fr; }
     .user-detail-grid { grid-template-columns: 1fr; }
     .avatar-picker { grid-template-columns: repeat(4, 1fr); }
     .mq-news-track { grid-auto-columns: 85%; }
