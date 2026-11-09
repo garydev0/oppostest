@@ -8,67 +8,28 @@ const EXAM_DURATION_SECONDS = 35 * 60;
 const MAX_LIVES = 5;
 
 // ==========================================
-// 1. MOTOR D'EMOJIS D'IPHONE (EXCLOENT EL PANEL CEO + ZERO ICONES TRENCADES)
+// 1. MOTOR D'EMOJIS ESTABLE (SENSE MUTATION OBSERVER = ZERO PARPALLEIG)
 // ==========================================
 const IS_APPLE_NATIVE = /Mac|iPod|iPhone|iPad/.test(navigator.platform) || (/Mac|iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream);
-let emojiObserver = null;
+const FE0F_SET = new Set(['2764', '23f1', '2699', '2620', '1f6e1', '270d', '1f5d1', '26a0', '1f441']);
 
-// Captura global d'errors d'imatge per assegurar que MAI surti cap icona trencada
-window.addEventListener('error', (e) => {
-    const img = e.target;
-    if (!img || img.tagName !== 'IMG' || !img.classList.contains('apple-emoji')) return;
+function refreshEmojis(root = document.body) {
+    if (IS_APPLE_NATIVE || !window.twemoji || !root) return;
+    const targets = root === document.body
+        ? document.querySelectorAll('.duo-sidebar, .duo-topbar, #view-learn, #view-temari, #view-simulacre-hub, #view-errors-hub, #view-ranking, #view-profile, #view-quiz, #view-results, #ios-reward-overlay, #modal-overlay, #toast-container')
+        : [root];
 
-    const currentSrc = img.getAttribute('src') || '';
-    if (!img.dataset.step) {
-        img.dataset.step = '1';
-        // Pas 1: Prova la variant amb selector -fe0f d'Apple
-        img.src = currentSrc.replace(/\.png$/, '-fe0f.png');
-    } else if (img.dataset.step === '1') {
-        img.dataset.step = '2';
-        // Pas 2: Si tampoc existeix amb -fe0f, restaura el caràcter original net sense trencar res
-        const textNode = document.createTextNode(img.alt || '');
-        img.replaceWith(textNode);
-    }
-}, true);
-
-function parseNodeWithAppleEmojis(node) {
-    if (!node || !window.twemoji) return;
-    if (node.closest && node.closest('.no-apple-emoji')) return;
-    window.twemoji.parse(node, {
-        className: 'apple-emoji',
-        callback: (icon) => `https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/${icon}.png`
-    });
-}
-
-function applyAppleEmojis() {
-    if (IS_APPLE_NATIVE || !window.twemoji) return;
-    if (emojiObserver) emojiObserver.disconnect();
-    try {
-        // Parseja totes les seccions de l'usuari EXCEPTE el Panel CEO (.no-apple-emoji)
-        document.querySelectorAll('.duo-sidebar, .duo-topbar, #view-learn, #view-temari, #view-simulacre-hub, #view-errors-hub, #view-ranking, #view-profile, #view-quiz, #view-results, #ios-reward-overlay, #modal-overlay, #toast-container').forEach(el => {
-            parseNodeWithAppleEmojis(el);
-        });
-    } catch (e) {}
-    if (emojiObserver) {
-        emojiObserver.observe(document.body, { childList: true, subtree: true });
-    }
-}
-
-function initAppleEmojiEngine() {
-    if (IS_APPLE_NATIVE) return;
-    applyAppleEmojis();
-    let scheduled = false;
-    emojiObserver = new MutationObserver((mutations) => {
-        // Ignora canvis dins del Panel CEO perquè sigui 100% instantani i estable
-        const onlyCeo = mutations.every(m => m.target.closest && m.target.closest('.no-apple-emoji'));
-        if (onlyCeo || scheduled) return;
-        scheduled = true;
-        requestAnimationFrame(() => {
-            scheduled = false;
-            applyAppleEmojis();
+    targets.forEach(el => {
+        if (!el || el.closest?.('.no-apple-emoji')) return;
+        window.twemoji.parse(el, {
+            className: 'apple-emoji',
+            callback: (icon) => `https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/${FE0F_SET.has(icon) ? icon + '-fe0f' : icon}.png`,
+            attributes: (_, icon) => ({
+                'data-code': icon,
+                onerror: "if(!this.dataset.r){this.dataset.r=1;this.src=this.src.includes('-fe0f')?this.src.replace('-fe0f.png','.png'):this.src.replace('.png','-fe0f.png');}else{this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/'+this.dataset.code+'.svg';}"
+            })
         });
     });
-    emojiObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 // ==========================================
@@ -136,7 +97,7 @@ function toggleSound() {
 }
 
 // ==========================================
-// 3. CONFIGURACIÓ FIREBASE I DADES
+// 3. CONFIGURACIÓ FIREBASE, TEMARI I MEDALLES
 // ==========================================
 const firebaseConfig = {
     apiKey: "AIzaSyAK8r_-CMw1626LIFnrn9NcVkIcvYv2Elo",
@@ -154,25 +115,15 @@ const db = getFirestore(app);
 let currentUser = null;
 
 const TOPIC_NAMES = {
-    a1: "Història de Catalunya I",
-    a2: "Història de Catalunya II",
-    a3: "Àmbit sociolingüístic",
-    a4: "Marc geogràfic i organització territorial",
-    a5: "Canvis socials, culturals i demogràfics",
-    a6: "Marc econòmic i laboral",
-    a7: "Tecnologies de la informació",
-    b1: "L'Estatut d'autonomia de Catalunya",
-    b2: "Les institucions polítiques de Catalunya",
-    b3: "L'ordenament jurídic i l'Administració",
-    b4: "La Constitució espanyola i l'Estat",
-    b5: "Drets humans i drets fonamentals",
-    b6: "La Unió Europea i les seves institucions",
-    b7: "L'Administració de justícia",
-    b8: "El Departament d'Interior i Seguretat Pública",
-    c1: "Les forces i cossos de seguretat",
-    c2: "La Llei de la Policia de la Generalitat",
-    c3: "El codi deontològic policial",
-    c4: "Àmbit penal i processal penal",
+    a1: "Història de Catalunya I", a2: "Història de Catalunya II", a3: "Àmbit sociolingüístic",
+    a4: "Marc geogràfic i organització territorial", a5: "Canvis socials, culturals i demogràfics",
+    a6: "Marc econòmic i laboral", a7: "Tecnologies de la informació",
+    b1: "L'Estatut d'autonomia de Catalunya", b2: "Les institucions polítiques de Catalunya",
+    b3: "L'ordenament jurídic i l'Administració", b4: "La Constitució espanyola i l'Estat",
+    b5: "Drets humans i drets fonamentals", b6: "La Unió Europea i les seves institucions",
+    b7: "L'Administració de justícia", b8: "El Departament d'Interior i Seguretat Pública",
+    c1: "Les forces i cossos de seguretat", c2: "La Llei de la Policia de la Generalitat",
+    c3: "El codi deontològic policial", c4: "Àmbit penal i processal penal",
     c5: "Seguretat ciutadana i policia administrativa"
 };
 
@@ -183,8 +134,21 @@ const TOPICS = {
 };
 const ALL_FILES = [...TOPICS.A, ...TOPICS.B, ...TOPICS.C];
 
+// 8 Medalles / Assoliments oficials
+const MEDALS = [
+    { id: 'first_test', icon: '🎯', name: 'Debutant', desc: 'Completa el teu 1r test', check: (s) => (s.seenQuestions?.length || 0) >= 5 },
+    { id: 'perfect_10', icon: '🏆', name: 'Impecable', desc: 'Aconsegueix un 10/10 en un test', check: (s) => s.medals?.includes('perfect_10') },
+    { id: 'sim_pass', icon: '⏱️', name: 'Apte Oficial', desc: 'Aprova un Simulacre Oficial (≥5)', check: (s) => (s.simulacreHistory || []).some(h => Number(h.grade) >= 5) },
+    { id: 'streak_3', icon: '🔥', name: 'Constant', desc: 'Aconsegueix 3 dies de ratxa', check: (s) => (s.dailyStreak || 0) >= 3 },
+    { id: 'streak_7', icon: '⚡', name: 'Imparable', desc: 'Aconsegueix 7 dies de ratxa', check: (s) => (s.dailyStreak || 0) >= 7 },
+    { id: 'seen_100', icon: '📘', name: 'Estudiant', desc: '100 preguntes úniques vistes', check: (s) => (s.seenQuestions?.length || 0) >= 100 },
+    { id: 'seen_500', icon: '🧠', name: 'Veterà ISPC', desc: '500 preguntes úniques vistes', check: (s) => (s.seenQuestions?.length || 0) >= 500 },
+    { id: 'topics_10', icon: '👑', name: 'Dominador', desc: '10 temes aprovats amb nota ≥ 5', check: (s) => Object.values(s.topicScores || {}).filter(v => v >= 5).length >= 10 }
+];
+
 const questionCache = {};
 let allUsersCache = [];
+let rankingUsersCache = {};
 let currentUploadTargetCode = null;
 let currentManagedTopicCode = null;
 let currentManagedQuestions = [];
@@ -207,6 +171,7 @@ let userStats = JSON.parse(localStorage.getItem('oppostest_pro_stats')) || {
     todayHighGradeDone: 0,
     todayChestClaimed: false,
     bestStreak: 0,
+    medals: [],
     seenQuestions: [],
     failedQuestions: [],
     savedQuestions: [],
@@ -222,10 +187,9 @@ if (typeof userStats.lives !== 'number') userStats.lives = MAX_LIVES;
 if (typeof userStats.shields !== 'number') userStats.shields = 1;
 if (typeof userStats.soundEnabled !== 'boolean') userStats.soundEnabled = true;
 if (userStats.avatar === '👮‍♂️' || userStats.avatar === '👮‍♀️') userStats.avatar = '👮';
-if (!Array.isArray(userStats.seenQuestions)) userStats.seenQuestions = [];
-if (!Array.isArray(userStats.failedQuestions)) userStats.failedQuestions = [];
-if (!Array.isArray(userStats.savedQuestions)) userStats.savedQuestions = [];
-if (!Array.isArray(userStats.simulacreHistory)) userStats.simulacreHistory = [];
+['medals', 'seenQuestions', 'failedQuestions', 'savedQuestions', 'simulacreHistory'].forEach(k => {
+    if (!Array.isArray(userStats[k])) userStats[k] = [];
+});
 
 let quizState = {
     mode: 'study',
@@ -238,6 +202,9 @@ let quizState = {
     wrong: 0,
     blank: 0,
     streak: 0,
+    startTime: 0,
+    lastAvgSpeed: 0,
+    activeDuel: null,
     userAnswers: [],
     simulacreAnswers: [],
     simulacreDoubts: [],
@@ -246,7 +213,7 @@ let quizState = {
 };
 
 // ==========================================
-// 4. LES 5 FINESTRES EMERGENTS D'ASSOLIMENTS ESTIL iOS
+// 4. POP-UPS D'ASSOLIMENTS, MEDALLES I DUELS
 // ==========================================
 function animateRollingCounter(el, targetNum, prefix = '+', suffix = ' XP') {
     el.classList.remove('hidden');
@@ -289,6 +256,7 @@ function triggerIosRewardPopup({ badge = 'ASSOLIMENT', icon = '🔥', title, rol
     }
 
     overlay.classList.remove('hidden');
+    refreshEmojis(overlay);
 
     pBtn.onclick = () => {
         overlay.classList.add('hidden');
@@ -298,6 +266,33 @@ function triggerIosRewardPopup({ badge = 'ASSOLIMENT', icon = '🔥', title, rol
         overlay.classList.add('hidden');
         if (onSecondary) onSecondary();
     };
+}
+
+function checkAchievements(justGotPerfect = false) {
+    if (justGotPerfect && !userStats.medals.includes('perfect_10')) {
+        userStats.medals.push('perfect_10');
+    }
+    let newlyUnlocked = null;
+    MEDALS.forEach(m => {
+        if (!userStats.medals.includes(m.id) && m.check(userStats)) {
+            userStats.medals.push(m.id);
+            newlyUnlocked = m;
+        }
+    });
+
+    if (newlyUnlocked) {
+        userStats.xp += 50;
+        setTimeout(() => {
+            triggerIosRewardPopup({
+                badge: 'NOVA MEDALLA DESBLOQUEJADA',
+                icon: newlyUnlocked.icon,
+                title: newlyUnlocked.name,
+                rollingTarget: 50,
+                html: `Has desbloquejat la insígnia: <b>${newlyUnlocked.desc}</b>`,
+                primaryText: 'Genial!'
+            });
+        }, 450);
+    }
 }
 
 function showDailyStreakPopup() {
@@ -319,18 +314,12 @@ function showDailyStreakPopup() {
 
 function claimDailyChest() {
     checkResetTodayCounters();
-    if (userStats.todayChestClaimed) {
-        showToast('Ja has obert el cofre d\'avui!', 'info');
-        return;
-    }
+    if (userStats.todayChestClaimed) return showToast('Ja has obert el cofre d\'avui!', 'info');
+
     const m1Done = (userStats.todayQuestionsCount || 0) >= 25;
     const m2Done = (userStats.todayErrorsFixed || 0) >= 3;
     const m3Done = (userStats.todayHighGradeDone || 0) >= 1;
-
-    if (!m1Done || !m2Done || !m3Done) {
-        showToast('Completa les 3 missions d\'avui per obrir el cofre!', 'info');
-        return;
-    }
+    if (!m1Done || !m2Done || !m3Done) return showToast('Completa les 3 missions d\'avui!', 'info');
 
     userStats.todayChestClaimed = true;
     userStats.xp += 100;
@@ -343,23 +332,20 @@ function claimDailyChest() {
         icon: '🎁',
         title: 'Missions Completades!',
         rollingTarget: 100,
-        rollingPrefix: '+',
-        rollingSuffix: ' XP ⚡',
-        html: 'Has guanyat <b>+1 Escut de Ratxa</b> i hem recarregat les teves <b>5 vides ❤️</b>.',
+        html: 'Has guanyat <b>+1 Escut de Ratxa 🛡️</b> i hem recarregat les teves <b>5 vides ❤️</b>.',
         primaryText: 'Genial!'
     });
 }
 
 function openLivesModal() {
     if (isUserPro()) {
-        triggerIosRewardPopup({
+        return triggerIosRewardPopup({
             badge: 'OPPOSTEST PRO',
             icon: '💎',
             title: 'Vides Infinites Actives',
             html: 'Tens el mode PRO actiu: pots entrenar sense límit d\'errors.',
             primaryText: 'Continuar'
         });
-        return;
     }
 
     const errCount = (userStats.failedQuestions || []).length;
@@ -368,19 +354,68 @@ function openLivesModal() {
         icon: userStats.lives === 0 ? '💔' : '❤️',
         title: userStats.lives === 0 ? 'T\'has quedat sense vides!' : `Tens ${userStats.lives} vides`,
         html: errCount > 0
-            ? `Cada pregunta que corregeixis a <b>Repàs</b> et retorna <b>+1 vida ❤️</b> gratis.`
+            ? `Cada pregunta que encertis a <b>Repàs</b> et retorna <b>+1 vida ❤️</b> gratis.`
             : `Si et quedes a 0 vides, pots recarregar-les gratis repassant errors o activar PRO.`,
         primaryText: errCount > 0 ? '🧠 Recuperar a Repàs' : '💎 Vides Infinites PRO',
         secondaryText: 'Tancar',
-        onPrimary: () => {
-            if (errCount > 0) switchTab('errors');
-            else openProModal();
-        }
+        onPrimary: () => errCount > 0 ? switchTab('errors') : openProModal()
     });
 }
 
 // ==========================================
-// 5. ALGORITME DE PREGUNTES NO VISTES I RANGS
+// 5. SISTEMA DE REPTES PER ENLLAÇ (⚔️ REPTAR AMIC)
+// ==========================================
+function shareDuelChallenge() {
+    const payload = {
+        n: (userStats.displayName || 'Opositor').slice(0, 18),
+        g: document.getElementById('res-score').textContent,
+        s: quizState.lastAvgSpeed || 12,
+        c: quizState.topicCode || 'a1'
+    };
+    const code = btoa(encodeURIComponent(JSON.stringify(payload)));
+    const url = `${window.location.origin}${window.location.pathname}?duel=${code}`;
+
+    if (navigator.clipboard) navigator.clipboard.writeText(url);
+    triggerIosRewardPopup({
+        badge: 'REPTE 1 VS 1 CREAT',
+        icon: '⚔️',
+        title: 'Enllaç de Repte Copiat!',
+        html: `Envia l'enllaç per WhatsApp a un company per veure si pot superar el teu <b>${payload.g}</b> (${payload.s}s/preg).`,
+        primaryText: 'Entesos!'
+    });
+}
+
+function checkIncomingDuelChallenge() {
+    const params = new URLSearchParams(window.location.search);
+    const duelParam = params.get('duel');
+    if (!duelParam) return false;
+
+    try {
+        const data = JSON.parse(decodeURIComponent(atob(duelParam)));
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        triggerIosRewardPopup({
+            badge: 'DESAFIAMENT D\'OPOSITOR',
+            icon: '⚔️',
+            title: `${data.n} et repta!`,
+            html: `Ha aconseguit una nota de <b>${data.g}</b> a una velocitat de <b>${data.s}s / preg.</b> al Tema ${(data.c || 'A1').toUpperCase()}. Pots superar-lo?`,
+            primaryText: '🔥 Acceptar Repte',
+            secondaryText: 'Més tard',
+            onPrimary: async () => {
+                const code = ALL_FILES.includes(data.c) ? data.c : 'a1';
+                const q = await fetchQuestionsFromCodes([code]);
+                if (!q.length) return;
+                initQuiz('study', `⚔️ REPTE VS ${data.n.toUpperCase()}`, shuffle(q).slice(0, 20), 0, code, 'tab-learn', data);
+            }
+        });
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// ==========================================
+// 6. ALGORITME DE PREGUNTES NO VISTES I RANGS
 // ==========================================
 function getQuestionKey(q) {
     return (q.question || '').trim().slice(0, 90);
@@ -397,10 +432,7 @@ function selectQuestionsPrioritizingUnseen(pool, count) {
     const seenSet = new Set(userStats.seenQuestions || []);
     const unseen = [];
     const seen = [];
-    pool.forEach(q => {
-        if (seenSet.has(getQuestionKey(q))) seen.push(q);
-        else unseen.push(q);
-    });
+    pool.forEach(q => (seenSet.has(getQuestionKey(q)) ? seen : unseen).push(q));
     return [...shuffle(unseen), ...shuffle(seen)].slice(0, count);
 }
 
@@ -416,14 +448,12 @@ function calculatePoliceRank(xp) {
         { name: 'Comissari/ària', icon: '👑', min: 35000, next: 100000 }
     ];
     let current = ranks[0];
-    for (const r of ranks) {
-        if (xp >= r.min) current = r;
-    }
+    for (const r of ranks) if (xp >= r.min) current = r;
     return current;
 }
 
 // ==========================================
-// 6. SPLASH, MODALS I TOASTS
+// 7. SPLASH, MODALS I TOASTS
 // ==========================================
 function updateSplashProgress(percent, text) {
     const bar = document.getElementById('splash-bar-fill');
@@ -449,7 +479,7 @@ function hideSplashLoader() {
         splash.style.opacity = '0';
         setTimeout(() => {
             splash.classList.add('hidden');
-            checkWelcomeDailyPopup();
+            if (!checkIncomingDuelChallenge()) checkWelcomeDailyPopup();
         }, 300);
     }, 150);
 }
@@ -469,6 +499,7 @@ function showToast(message, type = 'info') {
     toast.className = `toast ${type}`;
     toast.textContent = message;
     container.appendChild(toast);
+    refreshEmojis(toast);
     setTimeout(() => toast.remove(), 3200);
 }
 
@@ -483,25 +514,19 @@ function showModal({ icon = '💡', title, text, html = null, showInput = false,
 
     const inputEl = document.getElementById('modal-input');
     inputEl.value = '';
-    if (showInput) {
-        inputEl.placeholder = placeholder;
-        inputEl.classList.remove('hidden');
-    } else {
-        inputEl.classList.add('hidden');
-    }
+    inputEl.classList.toggle('hidden', !showInput);
+    if (showInput) inputEl.placeholder = placeholder;
 
     const cancelBtn = document.getElementById('modal-cancel');
     const confirmBtn = document.getElementById('modal-confirm');
 
-    if (cancelText) {
-        cancelBtn.textContent = cancelText;
-        cancelBtn.classList.remove('hidden');
-    } else {
-        cancelBtn.classList.add('hidden');
-    }
+    cancelBtn.classList.toggle('hidden', !cancelText);
+    if (cancelText) cancelBtn.textContent = cancelText;
     confirmBtn.textContent = confirmText;
 
     overlay.classList.remove('hidden');
+    refreshEmojis(overlay);
+
     cancelBtn.onclick = () => overlay.classList.add('hidden');
     confirmBtn.onclick = () => {
         const val = inputEl.value.trim();
@@ -511,10 +536,9 @@ function showModal({ icon = '💡', title, text, html = null, showInput = false,
 }
 
 // ==========================================
-// 7. INICIALITZACIÓ I NOTÍCIES 3CATINFO
+// 8. INICIALITZACIÓ I NOTÍCIES 3CATINFO
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-    initAppleEmojiEngine();
     updateSplashProgress(20, 'Preparant tauler...');
     initFirebaseListeners();
     initKeyboardShortcuts();
@@ -526,12 +550,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateStatsUI();
 
     updateSplashProgress(80, 'Carregant 3CatInfo...');
-    await Promise.all([
-        load3CatInfoNews(),
-        loadGlobalAlert(),
-        loadLiveEventBanner()
-    ]);
+    await Promise.all([load3CatInfoNews(), loadGlobalAlert(), loadLiveEventBanner()]);
 
+    refreshEmojis();
     hideSplashLoader();
 });
 
@@ -547,21 +568,15 @@ function normalize3CatArticleUrl(rawUrl) {
 }
 
 function parseRssXmlItems(xmlText) {
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+    const xmlDoc = new DOMParser().parseFromString(xmlText, "text/xml");
     const nodes = Array.from(xmlDoc.querySelectorAll("item"));
-    if (!nodes.length) throw new Error("Cap article XML");
+    if (!nodes.length) throw new Error();
 
-    return nodes.slice(0, 12).map(node => {
-        const rawTitle = node.querySelector("title")?.textContent || "";
-        const rawLink = node.querySelector("link")?.textContent || node.querySelector("guid")?.textContent || "";
-        const rawDate = node.querySelector("pubDate")?.textContent || "";
-        return {
-            title: rawTitle.replace(/<!\[CDATA\[|\]\]>/g, "").trim(),
-            link: normalize3CatArticleUrl(rawLink),
-            time: formatNewsTime(rawDate)
-        };
-    }).filter(item => item.title && item.link.includes("/noticia/"));
+    return nodes.slice(0, 12).map(node => ({
+        title: (node.querySelector("title")?.textContent || "").replace(/<!\[CDATA\[|\]\]>/g, "").trim(),
+        link: normalize3CatArticleUrl(node.querySelector("link")?.textContent || node.querySelector("guid")?.textContent || ""),
+        time: formatNewsTime(node.querySelector("pubDate")?.textContent || "")
+    })).filter(item => item.title && item.link.includes("/noticia/"));
 }
 
 async function fetch3CatArticlesFromSources() {
@@ -626,13 +641,7 @@ async function load3CatInfoNews() {
         a.href = news.link;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
-        a.innerHTML = `
-            <h4>${news.title}</h4>
-            <div class="mq-news-foot">
-                <span>${news.time}</span>
-                <span>Llegir ↗</span>
-            </div>
-        `;
+        a.innerHTML = `<h4>${news.title}</h4><div class="mq-news-foot"><span>${news.time}</span><span>Llegir ↗</span></div>`;
         track.appendChild(a);
     });
 }
@@ -642,9 +651,7 @@ function formatNewsTime(pubDateStr) {
     const d = new Date(pubDateStr.replace(/-/g, '/'));
     const parsed = isNaN(d.getTime()) ? new Date(pubDateStr) : d;
     if (isNaN(parsed.getTime())) return "Avui";
-    const hh = parsed.getHours().toString().padStart(2, '0');
-    const mm = parsed.getMinutes().toString().padStart(2, '0');
-    return `Avui · ${hh}:${mm}`;
+    return `Avui · ${parsed.getHours().toString().padStart(2, '0')}:${parsed.getMinutes().toString().padStart(2, '0')}`;
 }
 
 function scrollNewsCarousel(direction) {
@@ -653,7 +660,7 @@ function scrollNewsCarousel(direction) {
 }
 
 // ==========================================
-// 8. ACTUALITZACIÓ D'INTERFÍCIE D'INICI I MISSIONS
+// 9. TAULER D'INICI, TEMARI I NAVEGACIÓ
 // ==========================================
 function checkResetTodayCounters() {
     const today = getTodayStr();
@@ -680,9 +687,8 @@ function updateHomeDashboard() {
     const seenInTopic = topicQs.filter(q => seenSet.has(getQuestionKey(q))).length;
     const pctSeen = topicQs.length > 0 ? Math.round((seenInTopic / topicQs.length) * 100) : 0;
 
-    const offset = 264 - (264 * pctSeen) / 100;
     const ringEl = document.getElementById('home-ring-fill');
-    if (ringEl) ringEl.style.strokeDashoffset = offset;
+    if (ringEl) ringEl.style.strokeDashoffset = 264 - (264 * pctSeen) / 100;
 
     document.getElementById('home-topic-code').textContent = chosenCode.toUpperCase();
     document.getElementById('home-topic-pct').textContent = `${pctSeen}%`;
@@ -693,7 +699,7 @@ function updateHomeDashboard() {
 
     const rInfo = calculatePoliceRank(userStats.xp || 0);
     document.getElementById('home-rank-pill').textContent = `${rInfo.icon} ${rInfo.name}`;
-    document.getElementById('home-shield-pill').textContent = `🔰 ${userStats.shields || 0} escuts`;
+    document.getElementById('home-shield-pill').textContent = `🛡️ ${userStats.shields || 0} escuts`;
 
     const qDone = Math.min(25, userStats.todayQuestionsCount || 0);
     const eDone = Math.min(3, userStats.todayErrorsFixed || 0);
@@ -701,10 +707,8 @@ function updateHomeDashboard() {
 
     document.getElementById('m1-text').textContent = `${qDone}/25`;
     document.getElementById('m1-bar').style.width = `${(qDone / 25) * 100}%`;
-
     document.getElementById('m2-text').textContent = `${eDone}/3`;
     document.getElementById('m2-bar').style.width = `${(eDone / 3) * 100}%`;
-
     document.getElementById('m3-text').textContent = `${gDone}/1`;
     document.getElementById('m3-bar').style.width = `${gDone * 100}%`;
 
@@ -726,19 +730,13 @@ function startRecommendedTopic() {
     startTopic(recommendedTopicCode, 'tab-learn');
 }
 
-// ==========================================
-// 9. TEMARI I NAVEGACIÓ
-// ==========================================
 function filterTemariAmbit(ambit) {
     ['ALL', 'A', 'B', 'C'].forEach(k => {
         const b = document.getElementById(`flt-${k}`);
-        if (b) {
-            b.className = k === ambit ? 'btn-3d btn-blue btn-sm' : 'btn-3d btn-gray btn-sm';
-        }
+        if (b) b.className = k === ambit ? 'btn-3d btn-blue btn-sm' : 'btn-3d btn-gray btn-sm';
     });
     ['A', 'B', 'C'].forEach(letter => {
-        const block = document.getElementById(`temari-block-${letter}`);
-        if (block) block.classList.toggle('hidden', ambit !== 'ALL' && ambit !== letter);
+        document.getElementById(`temari-block-${letter}`)?.classList.toggle('hidden', ambit !== 'ALL' && ambit !== letter);
     });
 }
 
@@ -755,22 +753,18 @@ function renderTopicNodes() {
             const seenInTopic = topicQs.filter(q => seenSet.has(getQuestionKey(q))).length;
             const pctSeen = totalQ > 0 ? Math.round((seenInTopic / totalQ) * 100) : 0;
             const lastScore = userStats.topicScores?.[code];
-            const scoreLabel = lastScore !== undefined ? `Nota: ${lastScore.toFixed(1)}` : 'Pendent';
 
             const btn = document.createElement('button');
             btn.className = 'topic-clean-card';
             btn.innerHTML = `
                 <div class="tc-top">
                     <span class="tc-badge">${code.toUpperCase()}</span>
-                    <span class="tc-grade">${scoreLabel}</span>
+                    <span class="tc-grade">${lastScore !== undefined ? `Nota: ${lastScore.toFixed(1)}` : 'Pendent'}</span>
                 </div>
                 <div class="tc-title">${TOPIC_NAMES[code] || `Tema ${code.toUpperCase()}`}</div>
                 <div class="tc-progress-row">
                     <div class="mq-mini-bar"><div class="mq-mini-fill" style="width:${pctSeen}%"></div></div>
-                    <div class="tc-progress-meta">
-                        <span>${seenInTopic}/${totalQ}</span>
-                        <span>${pctSeen}%</span>
-                    </div>
+                    <div class="tc-progress-meta"><span>${seenInTopic}/${totalQ}</span><span>${pctSeen}%</span></div>
                 </div>
             `;
             btn.onclick = () => startTopic(code, 'tab-temari');
@@ -780,18 +774,18 @@ function renderTopicNodes() {
 }
 
 function openView(viewId, activeTabId) {
-    const allViews = [
-        'view-learn', 'view-temari', 'view-simulacre-hub', 'view-errors-hub',
-        'view-ranking', 'view-profile', 'view-ceo', 'view-quiz', 'view-results'
-    ];
-    allViews.forEach(id => document.getElementById(id)?.classList.add('hidden'));
-    document.getElementById(viewId)?.classList.remove('hidden');
+    ['view-learn', 'view-temari', 'view-simulacre-hub', 'view-errors-hub', 'view-ranking', 'view-profile', 'view-ceo', 'view-quiz', 'view-results']
+        .forEach(id => document.getElementById(id)?.classList.add('hidden'));
+
+    const targetView = document.getElementById(viewId);
+    if (targetView) targetView.classList.remove('hidden');
 
     document.querySelectorAll('.duo-nav-item').forEach(btn => {
         btn.classList.remove('active');
         btn.blur();
     });
     document.getElementById(activeTabId)?.classList.add('active');
+    if (viewId !== 'view-ceo') refreshEmojis(targetView);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -802,20 +796,14 @@ function returnAfterResults() {
 
 function isUserPro() {
     if (currentUser?.email.toLowerCase() === CEO_EMAIL.toLowerCase()) return true;
-    if (userStats.unlockedExams === true) return true;
-    if (typeof userStats.unlockedExams === 'number' && userStats.unlockedExams >= 3) return true;
-    return false;
+    return userStats.unlockedExams === true || (typeof userStats.unlockedExams === 'number' && userStats.unlockedExams >= 3);
 }
 
 function getInvitesCount(unlockedVal) {
-    if (typeof unlockedVal === 'number') return unlockedVal >= 900 ? 0 : unlockedVal;
-    return 0;
+    return (typeof unlockedVal === 'number' && unlockedVal < 900) ? unlockedVal : 0;
 }
 
-function getTodayStr() {
-    return new Date().toISOString().split('T')[0];
-}
-
+function getTodayStr() { return new Date().toISOString().split('T')[0]; }
 function getYesterdayStr() {
     const d = new Date();
     d.setDate(d.getDate() - 1);
@@ -831,7 +819,7 @@ function recordDailyStudy() {
         userStats.dailyStreak = (userStats.dailyStreak || 0) + 1;
     } else if ((userStats.dailyStreak || 0) > 0 && (userStats.shields || 0) > 0) {
         userStats.shields--;
-        showToast('🔰 Escut utilitzat! Has salvat la teva ratxa diària.', 'success');
+        showToast('🛡️ Escut utilitzat! Has salvat la teva ratxa diària.', 'success');
     } else {
         userStats.dailyStreak = 1;
     }
@@ -845,8 +833,7 @@ function updateStatsUI() {
     document.getElementById('ui-lives').textContent = isUserPro() ? '∞' : userStats.lives;
     document.getElementById('btn-sound-toggle').textContent = userStats.soundEnabled ? '🔔' : '🔕';
 
-    const errCount = (userStats.failedQuestions || []).length;
-    document.getElementById('sidebar-error-count').textContent = errCount;
+    document.getElementById('sidebar-error-count').textContent = (userStats.failedQuestions || []).length;
     document.getElementById('ui-user-avatar').textContent = userStats.avatar || '👮';
     document.getElementById('ui-user-name').textContent = userStats.displayName || 'Convidat';
 
@@ -863,6 +850,7 @@ function updateStatsUI() {
     }
 
     updateHomeDashboard();
+    refreshEmojis(document.querySelector('.duo-topbar'));
 }
 
 async function saveStats() {
@@ -880,6 +868,7 @@ async function saveStats() {
                 xp: userStats.xp,
                 lives: userStats.lives,
                 shields: userStats.shields || 0,
+                medals: userStats.medals || [],
                 dailyStreak: userStats.dailyStreak,
                 lastStudyDate: userStats.lastStudyDate,
                 todayDate: userStats.todayDate,
@@ -901,14 +890,13 @@ async function saveStats() {
 }
 
 // ==========================================
-// 10. PERFIL I AUTENTICACIÓ
+// 10. PERFIL, VITRINA DE MEDALLES I AUTENTICACIÓ
 // ==========================================
 function calcAmbitAverage(codesArray) {
     const scores = userStats.topicScores || {};
     const valid = codesArray.map(c => scores[c]).filter(v => v !== undefined);
     if (!valid.length) return 'Pendent';
-    const avg = valid.reduce((a, b) => a + b, 0) / valid.length;
-    return `${avg.toFixed(1)} / 10`;
+    return `${(valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1)} / 10`;
 }
 
 function renderProfileView() {
@@ -937,8 +925,30 @@ function renderProfileView() {
     document.getElementById('prof-avg-a').textContent = calcAmbitAverage(TOPICS.A);
     document.getElementById('prof-avg-b').textContent = calcAmbitAverage(TOPICS.B);
     document.getElementById('prof-avg-c').textContent = calcAmbitAverage(TOPICS.C);
-
     document.getElementById('profile-auth-btn').textContent = currentUser ? '🚪 Tancar Sessió' : '👤 Entrar amb Google';
+
+    // Renderitzar Vitrina de 8 Medalles
+    const medalsGrid = document.getElementById('profile-medals-grid');
+    if (medalsGrid) {
+        medalsGrid.innerHTML = '';
+        let unlockedCount = 0;
+        MEDALS.forEach(m => {
+            const hasIt = (userStats.medals || []).includes(m.id) || m.check(userStats);
+            if (hasIt) unlockedCount++;
+            const card = document.createElement('div');
+            card.className = `medal-card ${hasIt ? 'unlocked' : 'locked'}`;
+            card.innerHTML = `
+                <div class="medal-emoji">${m.icon}</div>
+                <div class="medal-info">
+                    <strong>${m.name}</strong>
+                    <small>${m.desc}</small>
+                </div>
+            `;
+            medalsGrid.appendChild(card);
+        });
+        document.getElementById('prof-medals-count').textContent = `${unlockedCount} / ${MEDALS.length}`;
+    }
+    refreshEmojis(document.getElementById('view-profile'));
 }
 
 function selectProfileAvatar(emoji) {
@@ -948,6 +958,7 @@ function selectProfileAvatar(emoji) {
         const btnEmoji = btn.dataset.emoji || btn.querySelector('img')?.alt || btn.textContent.trim();
         btn.classList.toggle('selected', btnEmoji === emoji);
     });
+    refreshEmojis(document.getElementById('profile-big-avatar'));
 }
 
 async function saveUserProfileData() {
@@ -1024,6 +1035,7 @@ function initFirebaseListeners() {
                 userStats.dailyStreak = Math.max(userStats.dailyStreak, data.dailyStreak || 0);
                 userStats.lastStudyDate = data.lastStudyDate || userStats.lastStudyDate;
                 userStats.bestStreak = Math.max(userStats.bestStreak, data.bestStreak || 0);
+                userStats.medals = Array.from(new Set([...(userStats.medals || []), ...(data.medals || [])]));
                 userStats.seenQuestions = Array.from(new Set([...(userStats.seenQuestions || []), ...(data.seenQuestions || [])]));
                 userStats.failedQuestions = data.failedQuestions || userStats.failedQuestions || [];
                 userStats.savedQuestions = data.savedQuestions || userStats.savedQuestions || [];
@@ -1081,14 +1093,13 @@ async function handleAuthClick() {
 
 function openProModal() {
     if (isUserPro()) {
-        triggerIosRewardPopup({
+        return triggerIosRewardPopup({
             badge: 'SUBSCRIPCIÓ ACTIVA',
             icon: '💎',
             title: 'Ets Usuari PRO!',
             html: 'Tens Vides Infinites, Simulacres il·limitats i Top Fallades.',
             primaryText: 'Genial!'
         });
-        return;
     }
     triggerIosRewardPopup({
         badge: 'OPPOSTEST PRO',
@@ -1159,9 +1170,7 @@ async function loadSingleTopicCode(code, forceRefresh = false) {
     let loaded = [];
     try {
         const bankSnap = await getDoc(doc(db, "mossos_custom_questions", `bank_${code}`));
-        if (bankSnap.exists() && Array.isArray(bankSnap.data().questions)) {
-            loaded = bankSnap.data().questions;
-        }
+        if (bankSnap.exists() && Array.isArray(bankSnap.data().questions)) loaded = bankSnap.data().questions;
     } catch (e) {}
 
     if (loaded.length > 0) {
@@ -1204,18 +1213,12 @@ async function buildWeightedSimulacreQuestions() {
 }
 
 function checkLivesBeforeStudy(callback) {
-    if (isUserPro() || userStats.lives > 0) {
-        callback();
-    } else {
-        openLivesModal();
-    }
+    if (isUserPro() || userStats.lives > 0) callback();
+    else openLivesModal();
 }
 
 function checkProAccessOrTrial(callback) {
-    if (isUserPro()) {
-        callback();
-        return;
-    }
+    if (isUserPro()) return callback();
     if ((userStats.freeProTrialsUsed || 0) < 1) {
         showModal({
             icon: '🎁',
@@ -1261,6 +1264,7 @@ function renderSimulacreHub() {
         `;
         listEl.appendChild(row);
     });
+    refreshEmojis(listEl);
 }
 
 function launchOfficialSimulacre() {
@@ -1380,14 +1384,15 @@ function startCommunityFailures() {
 }
 
 // ==========================================
-// 12. MOTOR DEL TEST, VIDES I SONS
+// 12. MOTOR DEL TEST, REPETICIÓ D'ERRORS (2 ENCERTS) I VELOCÍMETRE
 // ==========================================
-function initQuiz(mode, title, questions, timerSeconds = 0, topicCode = null, originTab = 'tab-learn') {
+function initQuiz(mode, title, questions, timerSeconds = 0, topicCode = null, originTab = 'tab-learn', activeDuel = null) {
     clearInterval(quizState.timerInterval);
 
     quizState = {
         mode, topicCode, originTab, title, questions,
         currentIndex: 0, correct: 0, wrong: 0, blank: 0, streak: 0,
+        startTime: Date.now(), lastAvgSpeed: 0, activeDuel,
         userAnswers: [],
         simulacreAnswers: new Array(questions.length).fill(null),
         simulacreDoubts: new Array(questions.length).fill(false),
@@ -1414,9 +1419,8 @@ function toggleSaveCurrentQuestion() {
     const q = quizState.questions[quizState.currentIndex];
     if (!q) return;
     const idx = userStats.savedQuestions.findIndex(item => item.question === q.question);
-    if (idx >= 0) {
-        userStats.savedQuestions.splice(idx, 1);
-    } else {
+    if (idx >= 0) userStats.savedQuestions.splice(idx, 1);
+    else {
         userStats.savedQuestions.push(q);
         playIosSound('correct');
     }
@@ -1431,6 +1435,7 @@ function updateStarButtonState() {
     const isSaved = userStats.savedQuestions.some(item => item.question === q.question);
     starBtn.textContent = isSaved ? '⭐ Guardada' : '☆ Guardar';
     starBtn.classList.toggle('saved', isSaved);
+    refreshEmojis(starBtn);
 }
 
 function renderSimulacreGrid() {
@@ -1530,13 +1535,12 @@ function renderQuestion() {
         const btn = document.createElement('button');
         btn.className = 'duo-opt';
         btn.dataset.optionValue = opt;
-        if (quizState.mode === 'simulacre' && currentSimSelection === opt) {
-            btn.classList.add('selected-sim');
-        }
+        if (quizState.mode === 'simulacre' && currentSimSelection === opt) btn.classList.add('selected-sim');
         btn.innerHTML = `<span class="opt-key">${letters[i]}</span> <span>${opt}</span>`;
         btn.onclick = () => selectAnswer(opt, btn);
         container.appendChild(btn);
     });
+    refreshEmojis(document.getElementById('view-quiz'));
 }
 
 function addXpAndCheckRankUp(amount) {
@@ -1560,6 +1564,15 @@ function addXpAndCheckRankUp(amount) {
     }
 }
 
+function registerFailedQuestion(qObj) {
+    const existing = userStats.failedQuestions.find(item => item.question === qObj.question);
+    if (existing) {
+        existing.fixesNeeded = 2;
+    } else {
+        userStats.failedQuestions.push({ ...qObj, fixesNeeded: 2 });
+    }
+}
+
 async function selectAnswer(selected, btn) {
     const q = quizState.questions[quizState.currentIndex];
 
@@ -1577,6 +1590,8 @@ async function selectAnswer(selected, btn) {
     const isCorrect = selected.trim() === q.correctAnswer.trim();
     quizState.userAnswers.push({ question: q, selected, isCorrect });
 
+    let feedbackHeadline = isCorrect ? '✅ Correcte! (+10 XP)' : '❌ Incorrecte';
+
     if (isCorrect) {
         playIosSound('correct');
         quizState.correct++;
@@ -1586,8 +1601,17 @@ async function selectAnswer(selected, btn) {
         if (quizState.mode === 'survival' && quizState.streak > userStats.bestStreak) {
             userStats.bestStreak = quizState.streak;
         }
+        // REPETICIÓ INTEL·LIGENT EN ERRORS (2 encerts per eliminar)
         if (quizState.mode === 'errors') {
-            userStats.failedQuestions = userStats.failedQuestions.filter(item => item.question !== q.question);
+            const targetErr = userStats.failedQuestions.find(item => item.question === q.question);
+            const left = (targetErr?.fixesNeeded ?? 2) - 1;
+            if (left <= 0) {
+                userStats.failedQuestions = userStats.failedQuestions.filter(item => item.question !== q.question);
+                feedbackHeadline = '✅ Error superat i eliminat! (2/2)';
+            } else {
+                if (targetErr) targetErr.fixesNeeded = left;
+                feedbackHeadline = '✅ Correcte! (1/2 encerts per netejar-la)';
+            }
             userStats.todayErrorsFixed = (userStats.todayErrorsFixed || 0) + 1;
             if (!isUserPro() && userStats.lives < MAX_LIVES) {
                 userStats.lives++;
@@ -1597,9 +1621,7 @@ async function selectAnswer(selected, btn) {
     } else {
         playIosSound('wrong');
         quizState.wrong++;
-        if (!userStats.failedQuestions.some(item => item.question === q.question)) {
-            userStats.failedQuestions.push(q);
-        }
+        registerFailedQuestion(q);
         if (quizState.mode !== 'errors' && !isUserPro()) {
             userStats.lives = Math.max(0, userStats.lives - 1);
         }
@@ -1617,8 +1639,9 @@ async function selectAnswer(selected, btn) {
 
     const fb = document.getElementById('feedback-content');
     fb.classList.remove('hidden');
-    document.getElementById('feedback-title').textContent = isCorrect ? '✅ Correcte! (+10 XP)' : '❌ Incorrecte';
+    document.getElementById('feedback-title').textContent = feedbackHeadline;
     document.getElementById('feedback-explanation').textContent = q.explanation || '';
+    refreshEmojis(fb);
 
     const nextBtn = document.getElementById('btn-next');
     nextBtn.classList.remove('hidden');
@@ -1685,11 +1708,8 @@ function nextQuestion() {
     }
 
     quizState.currentIndex++;
-    if (quizState.currentIndex >= quizState.questions.length) {
-        finishQuiz();
-    } else {
-        renderQuestion();
-    }
+    if (quizState.currentIndex >= quizState.questions.length) finishQuiz();
+    else renderQuestion();
 }
 
 function finishQuiz() {
@@ -1717,9 +1737,7 @@ function finishQuiz() {
                     addXpAndCheckRankUp(10);
                 } else {
                     quizState.wrong++;
-                    if (!userStats.failedQuestions.some(item => item.question === q.question)) {
-                        userStats.failedQuestions.push(q);
-                    }
+                    registerFailedQuestion(q);
                     recordCommunityFailure(q);
                 }
                 quizState.userAnswers.push({ question: q, selected: chosen, isCorrect: isOk });
@@ -1731,9 +1749,13 @@ function finishQuiz() {
     const net = Math.max(0, quizState.correct - (quizState.wrong / 3));
     const gradeNum = total > 0 ? (net / total) * 10 : 0;
 
-    if (gradeNum >= 8 && total >= 5) {
-        userStats.todayHighGradeDone = 1;
-    }
+    // VELOCÍMETRE DE RESPOSTA (Segons per pregunta)
+    const elapsedSec = Math.max(1, Math.round((Date.now() - (quizState.startTime || Date.now())) / 1000));
+    const answeredTotal = Math.max(1, quizState.correct + quizState.wrong);
+    const avgSpeed = (elapsedSec / answeredTotal).toFixed(1);
+    quizState.lastAvgSpeed = avgSpeed;
+
+    if (gradeNum >= 8 && total >= 5) userStats.todayHighGradeDone = 1;
 
     if (quizState.topicCode) {
         userStats.topicScores = userStats.topicScores || {};
@@ -1752,7 +1774,8 @@ function finishQuiz() {
         if (userStats.simulacreHistory.length > 20) userStats.simulacreHistory.pop();
     }
 
-    if (quizState.mode !== 'survival' && total >= 5 && quizState.wrong === 0 && quizState.blank === 0) {
+    const isPerfect = quizState.mode !== 'survival' && total >= 5 && quizState.wrong === 0 && quizState.blank === 0;
+    if (isPerfect) {
         addXpAndCheckRankUp(30);
         setTimeout(() => {
             triggerIosRewardPopup({
@@ -1760,12 +1783,13 @@ function finishQuiz() {
                 icon: '🏆',
                 title: 'Test Perfecte (10/10)!',
                 rollingTarget: 30,
-                html: 'Has encertat totes les preguntes sense cap errada. Bonificació extra!',
+                html: `Velocitat mitjana: <b>${avgSpeed}s / pregunta</b>. Bonificació extra!`,
                 primaryText: 'Continuar'
             });
         }, 250);
     }
 
+    checkAchievements(isPerfect);
     saveStats();
 
     openView('view-results', quizState.originTab);
@@ -1774,6 +1798,21 @@ function finishQuiz() {
     document.getElementById('res-ok').textContent = quizState.correct;
     document.getElementById('res-ko').textContent = quizState.wrong;
     document.getElementById('res-blank').textContent = quizState.blank;
+    document.getElementById('res-speed').textContent = `${avgSpeed}s`;
+
+    // Comprovació de victòria si era un Repte 1 vs 1
+    const duelBanner = document.getElementById('duel-outcome-banner');
+    if (quizState.activeDuel) {
+        const targetG = parseFloat(quizState.activeDuel.g) || 0;
+        const won = gradeNum > targetG || (gradeNum === targetG && parseFloat(avgSpeed) < parseFloat(quizState.activeDuel.s));
+        duelBanner.className = `zone-divider ${won ? 'zone-up' : 'zone-down'} mb-2`;
+        duelBanner.textContent = won
+            ? `🏆 HAS GUANYAT EL REPTE CONTRA ${quizState.activeDuel.n.toUpperCase()} (${quizState.activeDuel.g})!`
+            : `⚔️ ${quizState.activeDuel.n.toUpperCase()} HA GUANYAT EL REPTE AMB UN ${quizState.activeDuel.g}`;
+        duelBanner.classList.remove('hidden');
+    } else {
+        duelBanner.classList.add('hidden');
+    }
 
     const rev = document.getElementById('review-container');
     rev.innerHTML = '';
@@ -1790,6 +1829,7 @@ function finishQuiz() {
         `;
         rev.appendChild(d);
     });
+    refreshEmojis(document.getElementById('view-results'));
 }
 
 function initKeyboardShortcuts() {
@@ -1818,7 +1858,7 @@ function initKeyboardShortcuts() {
 }
 
 // ==========================================
-// 13. LLIGA SETMANAL PER DIVISIONS
+// 13. LLIGA SETMANAL I PERFILS PÚBLICS CLICABLES
 // ==========================================
 function reportCurrentQuestion() {
     const q = quizState.questions[quizState.currentIndex];
@@ -1853,14 +1893,19 @@ async function loadRanking() {
         const q = query(collection(db, "users"), orderBy("xp", "desc"), limit(20));
         const snap = await getDocs(q);
         list.innerHTML = '';
+        rankingUsersCache = {};
         let pos = 1;
         const totalDocs = snap.size;
 
         snap.forEach(d => {
             const u = d.data();
             if (u.banned) return;
+            rankingUsersCache[d.id] = u;
+
             const row = document.createElement('div');
-            row.className = 'rank-row';
+            row.className = 'rank-row clickable';
+            row.onclick = () => openPublicProfile(d.id);
+
             const medal = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : `#${pos}`;
             const isPro = u.unlockedExams === true || u.unlockedExams >= 3;
             const uRank = calculatePoliceRank(u.xp || 0);
@@ -1886,9 +1931,44 @@ async function loadRanking() {
             }
             pos++;
         });
+        refreshEmojis(document.getElementById('view-ranking'));
     } catch (e) {
         list.innerHTML = '<p class="muted-sm">Error carregant la lliga.</p>';
     }
+}
+
+function openPublicProfile(uid) {
+    const u = rankingUsersCache[uid];
+    if (!u) return;
+
+    const uRank = calculatePoliceRank(u.xp || 0);
+    const scoresObj = u.topicScores || {};
+    const keys = Object.keys(scoresObj);
+    const avg = keys.length > 0 ? (keys.reduce((a, k) => a + scoresObj[k], 0) / keys.length).toFixed(2) : '0.00';
+    const passed = keys.filter(k => scoresObj[k] >= 5).length;
+    const cleanAvatar = (u.avatar === '👮‍♂️' || u.avatar === '👮‍♀️') ? '👮' : (u.avatar || '👮');
+
+    const unlockedIcons = MEDALS
+        .filter(m => (u.medals || []).includes(m.id) || m.check(u))
+        .map(m => `<span title="${m.name}" style="font-size:1.5rem; margin:0 4px;">${m.icon}</span>`)
+        .join('');
+
+    triggerIosRewardPopup({
+        badge: `${uRank.icon} DIVISIÓ ${uRank.name.toUpperCase()}`,
+        icon: cleanAvatar,
+        title: u.displayName || 'Opositor',
+        html: `
+            <p class="muted-sm mb-2">${u.goal || 'Opositor Mossos d\'Esquadra'}</p>
+            <div class="user-detail-grid">
+                <div class="u-stat-box"><small>Experiència</small><strong>⚡ ${u.xp || 0} XP</strong></div>
+                <div class="u-stat-box"><small>Ratxa Activa</small><strong>🔥 ${u.dailyStreak || 0} dies</strong></div>
+                <div class="u-stat-box"><small>Nota Mitjana</small><strong>📊 ${avg}</strong></div>
+                <div class="u-stat-box"><small>Temes Aprovats</small><strong>📚 ${passed} / 20</strong></div>
+            </div>
+            <div class="mt-2">${unlockedIcons || '<small class="muted-sm">Sense medalles encara</small>'}</div>
+        `,
+        primaryText: 'Tancar'
+    });
 }
 
 async function loadLiveEventBanner() {
@@ -1912,7 +1992,7 @@ async function startLiveEvent() {
 }
 
 // ==========================================
-// 14. PANEL CEO 100% FUNCIONAL (TAULA + CERCADOR GLOBAL + PUJADA MASSIVA)
+// 14. PANEL CEO 100% FUNCIONAL
 // ==========================================
 async function ceoLoadBanksStatus() {
     if (currentUser?.email.toLowerCase() !== CEO_EMAIL.toLowerCase()) return;
@@ -1934,10 +2014,7 @@ async function ceoLoadBanksStatus() {
             const isOnline = bankDoc && Array.isArray(bankDoc.questions);
             const qCount = isOnline ? bankDoc.questions.length : 0;
             totalQuestionsInCloud += qCount;
-
-            if (isOnline) {
-                questionCache[code] = bankDoc.questions;
-            }
+            if (isOnline) questionCache[code] = bankDoc.questions;
 
             const row = document.createElement('div');
             row.className = `ceo-bank-row ${isOnline ? 'online' : ''}`;
@@ -1964,12 +2041,10 @@ async function ceoLoadBanksStatus() {
     }
 }
 
-// Cercador Global de Preguntes als 20 temes alhora
 async function ceoSearchAllQuestions() {
     const term = document.getElementById('ceo-global-q-search').value.toLowerCase().trim();
     const resContainer = document.getElementById('ceo-global-q-results');
     resContainer.innerHTML = '';
-
     if (term.length < 3) return;
 
     await fetchQuestionsFromCodes(ALL_FILES);
@@ -2048,7 +2123,7 @@ async function handleBulkJsonUpload(event) {
 
     renderTopicNodes();
     ceoLoadBanksStatus();
-    showToast(`${uploaded} archivos JSON actualizados en Firestore`, 'success');
+    showToast(`${uploaded} archivos JSON actualizados`, 'success');
 }
 
 async function handleJsonFileUpload(event) {
@@ -2207,12 +2282,9 @@ async function ceoEditReportedQuestion(encodedQuestion) {
     for (const code of ALL_FILES) {
         const list = questionCache[code] || [];
         const idx = list.findIndex(item => item.question.trim() === targetQ);
-        if (idx >= 0) {
-            openEditQuestionModal(code, idx);
-            return;
-        }
+        if (idx >= 0) return openEditQuestionModal(code, idx);
     }
-    showToast('Pregunta no encontrada en los bancos.', 'error');
+    showToast('Pregunta no encontrada.', 'error');
 }
 
 function filterTopicQuestions() {
@@ -2495,13 +2567,14 @@ Object.assign(window, {
     jumpToQuestion, toggleDoubtCurrent, clearCurrentAnswer, toggleSaveCurrentQuestion,
     confirmFinishSimulacre, confirmExitQuiz, handleAuthClick, forceSignOut,
     openProModal, openLivesModal, showDailyStreakPopup, claimDailyChest, toggleSound,
-    copyReferralLink, redeemFriendCode, loadRanking, reportCurrentQuestion,
-    selectProfileAvatar, saveUserProfileData, resetSeenQuestionsHistory,
-    forceReloadQuestionBanks, ceoLoadBanksStatus, ceoSearchAllQuestions,
-    triggerUploadJson, triggerBulkUpload, handleBulkJsonUpload, handleJsonFileUpload,
-    ceoDeleteBank, ceoDownloadBackup, openTopicManager, closeTopicManager,
-    openEditQuestionModal, ceoEditReportedQuestion, filterTopicQuestions,
-    deleteSingleQuestionFromTopic, openAddQuestionToCurrentTopic, ceoSaveAlert,
-    ceoClearAlert, ceoSaveEvent, ceoClearEvent, ceoLoadReports, ceoDeleteReport,
-    ceoLoadUsers, ceoFilterUsers, ceoInspectUser, ceoTogglePro, ceoToggleBan, ceoDeleteUserAccount
+    shareDuelChallenge, openPublicProfile, copyReferralLink, redeemFriendCode,
+    loadRanking, reportCurrentQuestion, selectProfileAvatar, saveUserProfileData,
+    resetSeenQuestionsHistory, forceReloadQuestionBanks, ceoLoadBanksStatus,
+    ceoSearchAllQuestions, triggerUploadJson, triggerBulkUpload, handleBulkJsonUpload,
+    handleJsonFileUpload, ceoDeleteBank, ceoDownloadBackup, openTopicManager,
+    closeTopicManager, openEditQuestionModal, ceoEditReportedQuestion,
+    filterTopicQuestions, deleteSingleQuestionFromTopic, openAddQuestionToCurrentTopic,
+    ceoSaveAlert, ceoClearAlert, ceoSaveEvent, ceoClearEvent, ceoLoadReports,
+    ceoDeleteReport, ceoLoadUsers, ceoFilterUsers, ceoInspectUser, ceoTogglePro,
+    ceoToggleBan, ceoDeleteUserAccount
 });
