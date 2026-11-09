@@ -8,10 +8,16 @@ const EXAM_DURATION_SECONDS = 35 * 60;
 const MAX_LIVES = 5;
 
 // ==========================================
-// 1. MOTOR D'EMOJIS ESTABLE (SENSE MUTATION OBSERVER = ZERO PARPALLEIG)
+// 1. MOTOR D'EMOJIS ESTABLE (SENSE OBSERVADORS = ZERO PARPALLEIG)
 // ==========================================
 const IS_APPLE_NATIVE = /Mac|iPod|iPhone|iPad/.test(navigator.platform) || (/Mac|iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream);
-const FE0F_SET = new Set(['2764', '23f1', '2699', '2620', '1f6e1', '270d', '1f5d1', '26a0', '1f441']);
+
+// Llista exacta d'icones que porten el sufix -fe0f al paquet oficial d'Apple
+const FE0F_SET = new Set([
+    '2764', '23f1', '2699', '2620', '1f6e1', '1f396', '2694',
+    '267b', '26a0', '270f', '1f5d1', '1f441', '2601', '25b6',
+    '2197', '2714', '2716', '267e'
+]);
 
 function refreshEmojis(root = document.body) {
     if (IS_APPLE_NATIVE || !window.twemoji || !root) return;
@@ -23,10 +29,13 @@ function refreshEmojis(root = document.body) {
         if (!el || el.closest?.('.no-apple-emoji')) return;
         window.twemoji.parse(el, {
             className: 'apple-emoji',
-            callback: (icon) => `https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/${FE0F_SET.has(icon) ? icon + '-fe0f' : icon}.png`,
+            callback: (icon) => {
+                const file = FE0F_SET.has(icon) ? `${icon}-fe0f` : icon;
+                return `https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/${file}.png`;
+            },
             attributes: (_, icon) => ({
                 'data-code': icon,
-                onerror: "if(!this.dataset.r){this.dataset.r=1;this.src=this.src.includes('-fe0f')?this.src.replace('-fe0f.png','.png'):this.src.replace('.png','-fe0f.png');}else{this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/'+this.dataset.code+'.svg';}"
+                onerror: "this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/'+this.dataset.code+'.svg';"
             })
         });
     });
@@ -134,7 +143,6 @@ const TOPICS = {
 };
 const ALL_FILES = [...TOPICS.A, ...TOPICS.B, ...TOPICS.C];
 
-// 8 Medalles / Assoliments oficials
 const MEDALS = [
     { id: 'first_test', icon: '🎯', name: 'Debutant', desc: 'Completa el teu 1r test', check: (s) => (s.seenQuestions?.length || 0) >= 5 },
     { id: 'perfect_10', icon: '🏆', name: 'Impecable', desc: 'Aconsegueix un 10/10 en un test', check: (s) => s.medals?.includes('perfect_10') },
@@ -536,7 +544,7 @@ function showModal({ icon = '💡', title, text, html = null, showInput = false,
 }
 
 // ==========================================
-// 8. INICIALITZACIÓ I NOTÍCIES 3CATINFO
+// 8. INICIALITZACIÓ I NOTÍCIES 3CATINFO (SENSE ERRORS CORS EN CONSOLA)
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     updateSplashProgress(20, 'Preparant tauler...');
@@ -567,21 +575,9 @@ function normalize3CatArticleUrl(rawUrl) {
     return rawUrl.trim().replace("http://", "https://").replace("https://www.ccma.cat/324/", "https://www.3cat.cat/3catinfo/");
 }
 
-function parseRssXmlItems(xmlText) {
-    const xmlDoc = new DOMParser().parseFromString(xmlText, "text/xml");
-    const nodes = Array.from(xmlDoc.querySelectorAll("item"));
-    if (!nodes.length) throw new Error();
-
-    return nodes.slice(0, 12).map(node => ({
-        title: (node.querySelector("title")?.textContent || "").replace(/<!\[CDATA\[|\]\]>/g, "").trim(),
-        link: normalize3CatArticleUrl(node.querySelector("link")?.textContent || node.querySelector("guid")?.textContent || ""),
-        time: formatNewsTime(node.querySelector("pubDate")?.textContent || "")
-    })).filter(item => item.title && item.link.includes("/noticia/"));
-}
-
 async function fetch3CatArticlesFromSources() {
     const officialRssUrl = "https://api.ccma.cat/noticies?_format=rss&origen=frontal&frontal=n324-portada-noticia&version=2.0";
-    const cached = sessionStorage.getItem('oppostest_3cat_news_v2');
+    const cached = sessionStorage.getItem('oppostest_3cat_news_v3');
     if (cached) {
         try {
             const parsed = JSON.parse(cached);
@@ -589,34 +585,19 @@ async function fetch3CatArticlesFromSources() {
         } catch (e) {}
     }
 
-    const viaRss2Json = async () => {
-        const res = await fetchWithTimeout(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(officialRssUrl)}`);
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        const list = (data.items || []).slice(0, 12).map(item => ({
-            title: (item.title || "").trim(),
-            link: normalize3CatArticleUrl(item.link || item.guid),
-            time: formatNewsTime(item.pubDate)
-        })).filter(i => i.title);
-        if (!list.length) throw new Error();
-        return list;
-    };
+    const res = await fetchWithTimeout(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(officialRssUrl)}`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    const list = (data.items || []).slice(0, 12).map(item => ({
+        title: (item.title || "").trim(),
+        link: normalize3CatArticleUrl(item.link || item.guid),
+        time: formatNewsTime(item.pubDate)
+    })).filter(i => i.title);
 
-    const viaCorsProxy = async () => {
-        const res = await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(officialRssUrl)}`);
-        if (!res.ok) throw new Error();
-        return parseRssXmlItems(await res.text());
-    };
-
-    const viaAllOrigins = async () => {
-        const res = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(officialRssUrl)}`);
-        if (!res.ok) throw new Error();
-        return parseRssXmlItems(await res.text());
-    };
-
-    const items = await Promise.any([viaRss2Json(), viaCorsProxy(), viaAllOrigins()]);
-    sessionStorage.setItem('oppostest_3cat_news_v2', JSON.stringify({ ts: Date.now(), items }));
-    return items;
+    if (list.length > 0) {
+        sessionStorage.setItem('oppostest_3cat_news_v3', JSON.stringify({ ts: Date.now(), items: list }));
+    }
+    return list;
 }
 
 async function load3CatInfoNews() {
@@ -724,6 +705,7 @@ function updateHomeDashboard() {
         chestBtn.classList.remove('ready');
         chestTxt.textContent = 'Cofre';
     }
+    refreshEmojis(document.querySelector('.duo-path-card'));
 }
 
 function startRecommendedTopic() {
@@ -927,7 +909,6 @@ function renderProfileView() {
     document.getElementById('prof-avg-c').textContent = calcAmbitAverage(TOPICS.C);
     document.getElementById('profile-auth-btn').textContent = currentUser ? '🚪 Tancar Sessió' : '👤 Entrar amb Google';
 
-    // Renderitzar Vitrina de 8 Medalles
     const medalsGrid = document.getElementById('profile-medals-grid');
     if (medalsGrid) {
         medalsGrid.innerHTML = '';
@@ -1601,7 +1582,6 @@ async function selectAnswer(selected, btn) {
         if (quizState.mode === 'survival' && quizState.streak > userStats.bestStreak) {
             userStats.bestStreak = quizState.streak;
         }
-        // REPETICIÓ INTEL·LIGENT EN ERRORS (2 encerts per eliminar)
         if (quizState.mode === 'errors') {
             const targetErr = userStats.failedQuestions.find(item => item.question === q.question);
             const left = (targetErr?.fixesNeeded ?? 2) - 1;
@@ -1749,7 +1729,6 @@ function finishQuiz() {
     const net = Math.max(0, quizState.correct - (quizState.wrong / 3));
     const gradeNum = total > 0 ? (net / total) * 10 : 0;
 
-    // VELOCÍMETRE DE RESPOSTA (Segons per pregunta)
     const elapsedSec = Math.max(1, Math.round((Date.now() - (quizState.startTime || Date.now())) / 1000));
     const answeredTotal = Math.max(1, quizState.correct + quizState.wrong);
     const avgSpeed = (elapsedSec / answeredTotal).toFixed(1);
@@ -1800,7 +1779,6 @@ function finishQuiz() {
     document.getElementById('res-blank').textContent = quizState.blank;
     document.getElementById('res-speed').textContent = `${avgSpeed}s`;
 
-    // Comprovació de victòria si era un Repte 1 vs 1
     const duelBanner = document.getElementById('duel-outcome-banner');
     if (quizState.activeDuel) {
         const targetG = parseFloat(quizState.activeDuel.g) || 0;
